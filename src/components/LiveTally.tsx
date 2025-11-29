@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import type { PollOption, UUID } from '@/types/db'
 
 type Counts = Record<string, number>
+type VoteRow = { option_id: UUID }
 
 export default function LiveTally({ pollId }: { pollId: UUID }) {
   const [options, setOptions] = useState<PollOption[]>([])
@@ -19,7 +20,7 @@ export default function LiveTally({ pollId }: { pollId: UUID }) {
         .eq('poll_id', pollId)
         .order('order_index', { ascending: true })
       if (!alive) return
-      setOptions((data ?? []) as any)
+      setOptions((data ?? []) as unknown as PollOption[])
     })()
     return () => { alive = false }
   }, [pollId])
@@ -34,7 +35,7 @@ export default function LiveTally({ pollId }: { pollId: UUID }) {
         .eq('poll_id', pollId)
       if (!alive) return
       const init: Counts = {}
-      for (const row of data ?? []) {
+      for (const row of (data as VoteRow[] | null) ?? []) {
         init[row.option_id] = (init[row.option_id] ?? 0) + 1
       }
       setCounts(init)
@@ -50,7 +51,7 @@ export default function LiveTally({ pollId }: { pollId: UUID }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'votes', filter: `poll_id=eq.${pollId}` },
         (payload) => {
-          const opt = (payload.new as any).option_id as string
+          const opt = (payload.new as VoteRow).option_id
           setCounts(prev => ({ ...prev, [opt]: (prev[opt] ?? 0) + 1 }))
         }
       )

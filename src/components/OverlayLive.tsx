@@ -12,6 +12,9 @@ type LiveState =
   | { status: 'active'; poll: Poll }
   | { status: 'results'; poll: Poll }
 
+type IdRow = { id: UUID; created_at?: string }
+type VoteRow = { option_id: UUID }
+
 async function getCampusIdBySlug(slug: string): Promise<UUID | null> {
   const { data, error } = await supabase
     .from('campuses')
@@ -20,7 +23,7 @@ async function getCampusIdBySlug(slug: string): Promise<UUID | null> {
     .limit(1)
     .maybeSingle()
   if (error) { console.warn(error); return null }
-  return data?.id ?? null
+  return (data as IdRow | null)?.id ?? null
 }
 
 async function getLatestEventId(campus_id: UUID): Promise<UUID | null> {
@@ -31,7 +34,7 @@ async function getLatestEventId(campus_id: UUID): Promise<UUID | null> {
     .order('created_at', { ascending: false })
     .limit(1)
   if (error) { console.warn(error); return null }
-  return data?.[0]?.id ?? null
+  return (data as IdRow[] | null)?.[0]?.id ?? null
 }
 
 async function fetchState(event_id: UUID): Promise<LiveState> {
@@ -70,7 +73,7 @@ function useOptions(pollId?: UUID) {
         .select('*')
         .eq('poll_id', pollId)
         .order('order_index', { ascending: true })
-      if (alive) setOptions((data ?? []) as any)
+      if (alive) setOptions((data ?? []) as unknown as PollOption[])
     })()
     return () => { alive = false }
   }, [pollId])
@@ -122,7 +125,7 @@ export default function OverlayLive() {
         }
       )
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return () => { alive = false; supabase.removeChannel(ch) }
   }, [eventId])
 
   const pollId = state.status === 'active' || state.status === 'results' ? state.poll.id : null
@@ -140,7 +143,7 @@ export default function OverlayLive() {
         .eq('poll_id', pollId)
       if (!alive) return
       const init: Record<string, number> = {}
-      for (const row of data ?? []) init[row.option_id] = (init[row.option_id] ?? 0) + 1
+      for (const row of (data as VoteRow[] | null) ?? []) init[row.option_id] = (init[row.option_id] ?? 0) + 1
       setCounts(init)
     })()
     const ch = supabase
@@ -149,12 +152,12 @@ export default function OverlayLive() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'votes', filter: `poll_id=eq.${pollId}` },
         (payload) => {
-          const opt = (payload.new as any).option_id as string
+          const opt = (payload.new as VoteRow).option_id
           setCounts(prev => ({ ...prev, [opt]: (prev[opt] ?? 0) + 1 }))
         }
       )
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return () => { alive = false; supabase.removeChannel(ch) }
   }, [pollId])
 
   const total = useMemo(() => Object.values(counts).reduce((a,b)=>a+b,0), [counts])

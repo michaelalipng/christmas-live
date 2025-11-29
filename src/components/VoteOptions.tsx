@@ -19,7 +19,7 @@ export default function VoteOptions({ pollId }: { pollId: UUID }) {
         .order('order_index', { ascending: true })
       if (!alive) return
       if (error) setError(error.message)
-      else setOptions((data ?? []) as any)
+      else setOptions((data ?? []) as unknown as PollOption[])
     })()
     return () => { alive = false }
   }, [pollId])

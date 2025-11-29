@@ -7,15 +7,17 @@ import dynamic from 'next/dynamic'
 const BannerTray = dynamic(() => import('@/components/BannerTray'), { ssr: false })
 
 type Counts = Record<string, number>
+type IdRow = { id: UUID; created_at?: string }
+type VoteRow = { option_id: UUID }
 
 async function getCampusIdBySlug(slug: string): Promise<UUID | null> {
   const { data } = await supabase.from('campuses').select('id').eq('slug', slug).maybeSingle()
-  return (data as any)?.id ?? null
+  return (data as IdRow | null)?.id ?? null
 }
 
 async function latestEventId(campus_id: UUID): Promise<UUID | null> {
   const { data } = await supabase.from('events').select('id, created_at').eq('campus_id', campus_id).order('created_at', { ascending: false }).limit(1)
-  return data?.[0]?.id ?? null
+  return (data as IdRow[] | null)?.[0]?.id ?? null
 }
 
 export default function ResultsWall() {
@@ -48,16 +50,16 @@ export default function ResultsWall() {
       .select('*')
       .eq('event_id', eid)
       .limit(1)
-    const pollRow = (p as any)?.[0] as Poll | undefined
+    const pollRow = (p?.[0] as Poll | undefined)
     if (!pollRow) { setPoll(null); setOptions([]); setCounts({}); return }
     setPoll(pollRow)
     const [{ data: opts }, { data: votes }] = await Promise.all([
       supabase.from('poll_options').select('*').eq('poll_id', pollRow.id).order('order_index', { ascending: true }),
       supabase.from('votes').select('option_id').eq('poll_id', pollRow.id),
     ])
-    setOptions((opts ?? []) as any)
+    setOptions((opts ?? []) as unknown as PollOption[])
     const init: Counts = {}
-    for (const v of votes ?? []) init[(v as any).option_id] = (init[(v as any).option_id] ?? 0) + 1
+    for (const v of (votes as VoteRow[] | null) ?? []) init[v.option_id] = (init[v.option_id] ?? 0) + 1
     setCounts(init)
   }
 
@@ -79,14 +81,14 @@ export default function ResultsWall() {
 
   // also subscribe to votes inserts for the currently shown poll, if any
   useEffect(() => {
-    if (!poll) return
+    if (!poll?.id) return
     const ch = supabase
       .channel(`results:votes:${poll.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'votes', filter: `poll_id=eq.${poll.id}` },
         (payload) => {
-          const opt = (payload.new as any).option_id as string
+          const opt = (payload.new as VoteRow).option_id
           setCounts(prev => ({ ...prev, [opt]: (prev[opt] ?? 0) + 1 }))
         }
       )

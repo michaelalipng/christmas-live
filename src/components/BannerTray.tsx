@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { UUID } from '@/types/db'
 import { getDeviceId } from '@/lib/deviceId'
@@ -73,7 +73,7 @@ export default function BannerTray({ eventId }: { eventId: UUID }) {
     if (!banner?.expires_at) return
    const id = setInterval(() => {
       const now = Date.now()
-      const exp = Date.parse(banner.expires_at)
+      const exp = Date.parse(banner.expires_at!)
       if (now >= exp) setBanner(null)
     }, 1000)
     return () => clearInterval(id)
@@ -97,11 +97,12 @@ export default function BannerTray({ eventId }: { eventId: UUID }) {
       window.open(url, '_blank', 'noopener,noreferrer')
       return
     }
-    if (banner.cta_type === 'share' && (navigator as any).share) {
+    const navShare = (navigator as unknown as { share?: (data: { text?: string; url?: string }) => Promise<void> }).share
+    if (banner.cta_type === 'share' && typeof navShare === 'function') {
       const looksLikeUrl = /^https?:\/\//i.test(payload) || /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(payload)
       const url = looksLikeUrl ? normalizeUrl(payload) : undefined
-      const shareData: any = url ? { url } : { text: payload }
-      ;(navigator as any).share(shareData).catch(() => {})
+      const shareData = url ? { url } : { text: payload }
+      navShare(shareData).catch(() => {})
       return
     }
     if (banner.cta_type === 'sms') {

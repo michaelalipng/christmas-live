@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { Poll, UUID } from '@/types/db'
 
+type IdRow = { id: UUID }
+
 async function latestEventId(campusSlug: string): Promise<UUID | null> {
   const { data: campus } = await supabase.from('campuses').select('id').eq('slug', campusSlug).maybeSingle()
-  if (!campus?.id) return null
-  const { data: events } = await supabase.from('events').select('id, created_at').eq('campus_id', campus.id).order('created_at', { ascending: false }).limit(1)
-  return events?.[0]?.id ?? null
+  if (!(campus as IdRow | null)?.id) return null
+  const { data: events } = await supabase.from('events').select('id, created_at').eq('campus_id', (campus as IdRow).id).order('created_at', { ascending: false }).limit(1)
+  return (events as IdRow[] | null)?.[0]?.id ?? null
 }
 
 export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
@@ -31,15 +33,15 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       setEventId(eid)
       if (!eid) return setLoading(false)
       const { data } = await supabase.from('polls').select('*').eq('event_id', eid).order('order_index', { ascending: true })
-      setPolls((data ?? []) as any)
+      setPolls((data ?? []) as unknown as Poll[])
       const { data: a } = await supabase.from('polls').select('*').eq('event_id', eid).eq('state', 'active').limit(1)
-      setActive(a?.[0] ?? null)
+      setActive(((a ?? [])[0] as Poll) ?? null)
       setLoading(false)
     })()
     return () => { alive = false }
   }, [campusSlug])
 
-  async function call(path: string, body: Record<string, any>) {
+  async function call(path: string, body: Record<string, unknown>) {
     const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' }, body: JSON.stringify(body) })
     if (!res.ok) throw new Error(await res.text())
     return res.json()
@@ -109,7 +111,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         <div className="grid gap-2 md:grid-cols-2">
           <input value={bTitle} onChange={e=>setBTitle(e.target.value)} placeholder="Title" className="border rounded px-2 py-1" />
           <input value={bBody} onChange={e=>setBBody(e.target.value)} placeholder="Body (optional)" className="border rounded px-2 py-1" />
-          <select value={bType} onChange={e=>setBType(e.target.value as any)} className="border rounded px-2 py-1">
+          <select value={bType} onChange={e=>setBType(e.target.value as 'link'|'share'|'sms'|'none')} className="border rounded px-2 py-1">
             <option value="link">Link</option>
             <option value="share">Share</option>
             <option value="sms">SMS</option>
