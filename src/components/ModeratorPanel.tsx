@@ -109,28 +109,22 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
 
   async function pushBanner() {
     if (!eventId) return
-    try {
-      await call('/api/banner/push', {
-        event_id: eventId,
-        title: bTitle,
-        body: bBody || null,
-        cta_label: bLabel || null,
-        cta_type: bType === 'none' ? null : bType,
-        cta_payload: bPayload || null,
-        duration_sec: bDuration || null,
-      }, 'Push Banner')
+    const result = await call('/api/banner/push', {
+      event_id: eventId,
+      title: bTitle,
+      body: bBody || null,
+      cta_label: bLabel || null,
+      cta_type: bType === 'none' ? null : bType,
+      cta_payload: bPayload || null,
+      duration_sec: bDuration || null,
+    })
+    if (result !== null) {
       setBTitle(''); setBBody(''); setBPayload('')
-    } catch (err) {
-      // Error already handled in call()
     }
   }
   async function clearBanner() {
     if (!eventId) return
-    try {
-      await call('/api/banner/clear', { event_id: eventId }, 'Clear Banner')
-    } catch (err) {
-      // Error already handled in call()
-    }
+    await call('/api/banner/clear', { event_id: eventId })
   }
 
   if (loading) return <p>Loading…</p>
@@ -167,10 +161,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
             className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={actionLoading !== null}
             onClick={async () => {
-              try {
-                await call('/api/mod/start', { poll_id: p.id }, 'Start Poll')
-              } catch (err) {
-                // Error already handled in call()
+              const result = await call('/api/mod/start', { poll_id: p.id })
+              if (result !== null) {
+                await refreshPolls()
               }
             }}
           >
@@ -185,10 +178,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
             className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
             disabled={actionLoading !== null}
             onClick={async () => {
-              try {
-                await call('/api/mod/results', { poll_id: active.id }, 'Show Results')
-              } catch (err) {
-                // Error already handled in call()
+              const result = await call('/api/mod/results', { poll_id: active.id })
+              if (result !== null) {
+                await refreshPolls()
               }
             }}
           >
@@ -198,10 +190,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
             className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
             disabled={actionLoading !== null}
             onClick={async () => {
-              try {
-                await call('/api/mod/extend', { poll_id: active.id, seconds: 5 }, 'Extend Poll')
-              } catch (err) {
-                // Error already handled in call()
+              const result = await call('/api/mod/extend', { poll_id: active.id, seconds: 5 })
+              if (result !== null) {
+                await refreshPolls()
               }
             }}
           >
@@ -211,10 +202,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
             className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
             disabled={actionLoading !== null}
             onClick={async () => {
-              try {
-                await call('/api/mod/end', { poll_id: active.id }, 'End Poll')
-              } catch (err) {
-                // Error already handled in call()
+              const result = await call('/api/mod/end', { poll_id: active.id })
+              if (result !== null) {
+                await refreshPolls()
               }
             }}
           >
@@ -227,10 +217,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
         disabled={actionLoading !== null}
         onClick={async () => {
-          try {
-            await call('/api/mod/next', { event_id: eventId }, 'Next Poll')
-          } catch (err) {
-            // Error already handled in call()
+          const result = await call('/api/mod/next', { event_id: eventId })
+          if (result !== null) {
+            await refreshPolls()
           }
         }}
       >
