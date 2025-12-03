@@ -137,10 +137,19 @@ async function processEvent(event_id: string): Promise<NextResponse> {
     if (nextError) return NextResponse.json({ error: nextError.message }, { status: 500 })
 
     if (nextPoll) {
-      const durationMs = (nextPoll.duration_seconds ?? 30) * 1000
+      // Get event's global duration and results settings
+      const { data: eventData } = await supabaseAdmin
+        .from('events')
+        .select('duration_seconds, results_seconds')
+        .eq('id', event_id)
+        .single()
+      
+      const durationSeconds = eventData?.duration_seconds ?? 30
+      const resultsSeconds = eventData?.results_seconds ?? 8
+      const durationMs = durationSeconds * 1000
       const startsAt = now.toISOString()
       const endsAt = new Date(now.getTime() + durationMs).toISOString()
-      const resultsUntil = new Date(now.getTime() + durationMs + (nextPoll.results_seconds ?? 8) * 1000)
+      const resultsUntil = new Date(now.getTime() + durationMs + resultsSeconds * 1000)
 
       const { error: startError } = await supabaseAdmin
         .from('polls')
@@ -148,7 +157,9 @@ async function processEvent(event_id: string): Promise<NextResponse> {
           state: 'active',
           starts_at: startsAt,
           ends_at: endsAt,
-          results_until: resultsUntil.toISOString()
+          results_until: resultsUntil.toISOString(),
+          duration_seconds: durationSeconds,
+          results_seconds: resultsSeconds,
         })
         .eq('id', nextPoll.id)
 

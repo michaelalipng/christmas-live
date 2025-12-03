@@ -24,19 +24,23 @@ export async function POST(req: NextRequest) {
     .eq('event_id', poll.event_id)
     .eq('state', 'active')
   
-  // Get full poll data to access results_seconds
-  const { data: fullPoll, error: pollDataError } = await supabaseAdmin
-    .from('polls')
+  // Get event settings (global duration and results)
+  const { data: event, error: eventError } = await supabaseAdmin
+    .from('events')
     .select('duration_seconds, results_seconds')
-    .eq('id', poll_id)
+    .eq('id', poll.event_id)
     .single()
   
-  if (pollDataError) return NextResponse.json({ error: pollDataError.message }, { status: 500 })
+  if (eventError) return NextResponse.json({ error: eventError.message }, { status: 500 })
+  
+  // Use event's global settings, fallback to defaults
+  const durationSeconds = event?.duration_seconds ?? 30
+  const resultsSeconds = event?.results_seconds ?? 8
   
   // Now start the requested poll
   const now = new Date()
-  const durationMs = (fullPoll.duration_seconds ?? 20) * 1000
-  const resultsMs = (fullPoll.results_seconds ?? 8) * 1000
+  const durationMs = durationSeconds * 1000
+  const resultsMs = resultsSeconds * 1000
   const startsAt = now.toISOString()
   const endsAt = new Date(now.getTime() + durationMs).toISOString()
   const resultsUntil = new Date(now.getTime() + durationMs + resultsMs).toISOString()
@@ -47,7 +51,9 @@ export async function POST(req: NextRequest) {
       state: 'active', 
       starts_at: startsAt, 
       ends_at: endsAt,
-      results_until: resultsUntil
+      results_until: resultsUntil,
+      duration_seconds: durationSeconds,
+      results_seconds: resultsSeconds,
     })
     .eq('id', poll_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

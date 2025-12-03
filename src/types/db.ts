@@ -16,6 +16,8 @@ export type EventRow = {
   ends_at: string | null
   auto_advance: boolean
   gap_seconds: number
+  duration_seconds: number | null
+  results_seconds: number | null
   created_at: string
 }
 

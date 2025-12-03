@@ -30,8 +30,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [showCreatePoll, setShowCreatePoll] = useState(false)
   const [newPollQuestion, setNewPollQuestion] = useState('')
   const [newPollOrder, setNewPollOrder] = useState(0)
-  const [newPollDuration, setNewPollDuration] = useState(30)
-  const [newPollResults, setNewPollResults] = useState(8)
   const [newPollOptions, setNewPollOptions] = useState<string[]>(['', ''])
   const [newPollCorrectIndex, setNewPollCorrectIndex] = useState<number | null>(null)
   const [pollOptions, setPollOptions] = useState<Record<UUID, PollOption[]>>({})
@@ -39,7 +37,8 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [addingOptionToPoll, setAddingOptionToPoll] = useState<UUID | null>(null)
   const [newOptionLabel, setNewOptionLabel] = useState('')
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false)
-  const [eventAutoAdvance, setEventAutoAdvance] = useState<boolean | null>(null)
+  const [eventDuration, setEventDuration] = useState<number>(30)
+  const [eventResults, setEventResults] = useState<number>(8)
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
@@ -48,15 +47,16 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     const { data: a } = await supabase.from('polls').select('*').eq('event_id', eventId).eq('state', 'active').limit(1)
     setActive(((a ?? [])[0] as Poll) ?? null)
     
-    // Check event auto_advance status
+    // Check event settings
     const { data: eventData } = await supabase
       .from('events')
-      .select('auto_advance')
+      .select('auto_advance, duration_seconds, results_seconds')
       .eq('id', eventId)
       .single()
     if (eventData) {
-      setEventAutoAdvance(eventData.auto_advance ?? false)
       setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+      setEventDuration(eventData.duration_seconds ?? 30)
+      setEventResults(eventData.results_seconds ?? 8)
     }
     
     // Refresh options for all polls
@@ -212,111 +212,82 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       )}
       <div className="grid gap-2">
         <div className="text-sm opacity-70">Event: {eventId}</div>
-        <div className="text-sm">Active: {active ? active.question : 'None'}</div>
+        <div className="text-sm">Status: {active ? `Active - ${active.question}` : autoAdvanceEnabled ? 'Waiting to start...' : 'Stopped'}</div>
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <button
-          className={`px-4 py-2 rounded border font-semibold ${
-            autoAdvanceEnabled 
-              ? 'bg-green-500 text-white border-green-600 hover:bg-green-600' 
-              : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-          }`}
-          onClick={async () => {
-            if (!eventId) return
-            
-            if (!autoAdvanceEnabled) {
-              // Enable auto-advance on the event
-              const result = await call('/api/mod/auto-advance/enable', { event_id: eventId })
-              if (result !== null) {
-                setAutoAdvanceEnabled(true)
-                // Starting auto-advance - if no active poll, start the first one
-                if (!active && polls.length > 0) {
-                  const firstPoll = polls[0]
-                  await call('/api/mod/start', { poll_id: firstPoll.id })
+      {/* Global Settings */}
+      <div className="border rounded-xl p-4 space-y-3 bg-white">
+        <h3 className="font-semibold">Global Settings</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Question Duration (seconds)</label>
+            <input
+              type="number"
+              value={eventDuration}
+              onChange={e => setEventDuration(Number(e.target.value))}
+              onBlur={async () => {
+                if (eventId) {
+                  await call('/api/mod/event/update', {
+                    event_id: eventId,
+                    duration_seconds: eventDuration,
+                  })
+                  await refreshPolls()
                 }
-                await refreshPolls()
-              }
-            } else {
-              // Disable auto-advance on the event
-              const result = await call('/api/mod/auto-advance/disable', { event_id: eventId })
-              if (result !== null) {
-                setAutoAdvanceEnabled(false)
-                await refreshPolls()
-              }
-            }
-          }}
-        >
-          {autoAdvanceEnabled ? '⏸ Stop Auto-Advance' : '▶ Start Auto-Advance'}
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {polls.map(p => (
-          <button
-            key={p.id}
-            className="px-3 py-2 rounded border hover:bg-gray-50"
-            onClick={async () => {
-              const result = await call('/api/mod/start', { poll_id: p.id })
-              if (result !== null) {
-                await refreshPolls()
-              }
-            }}
-          >
-            Start: {p.order_index}. {p.question.slice(0,40)}
-          </button>
-        ))}
-      </div>
-
-      {active && (
-        <div className="flex gap-2">
-          <button 
-            className="px-3 py-2 rounded border hover:bg-gray-50" 
-            onClick={async () => {
-              const result = await call('/api/mod/results', { poll_id: active.id })
-              if (result !== null) {
-                await refreshPolls()
-              }
-            }}
-          >
-            Show Results
-          </button>
-          <button 
-            className="px-3 py-2 rounded border hover:bg-gray-50" 
-            onClick={async () => {
-              const result = await call('/api/mod/extend', { poll_id: active.id, seconds: 5 })
-              if (result !== null) {
-                await refreshPolls()
-              }
-            }}
-          >
-            Extend +5s
-          </button>
-          <button 
-            className="px-3 py-2 rounded border hover:bg-gray-50" 
-            onClick={async () => {
-              const result = await call('/api/mod/end', { poll_id: active.id })
-              if (result !== null) {
-                await refreshPolls()
-              }
-            }}
-          >
-            End
-          </button>
+              }}
+              className="w-full border rounded px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Results Duration (seconds)</label>
+            <input
+              type="number"
+              value={eventResults}
+              onChange={e => setEventResults(Number(e.target.value))}
+              onBlur={async () => {
+                if (eventId) {
+                  await call('/api/mod/event/update', {
+                    event_id: eventId,
+                    results_seconds: eventResults,
+                  })
+                  await refreshPolls()
+                }
+              }}
+              className="w-full border rounded px-3 py-2"
+            />
+          </div>
         </div>
-      )}
+      </div>
 
-      <button 
-        className="px-3 py-2 rounded border hover:bg-gray-50" 
-        onClick={async () => {
-          const result = await call('/api/mod/next', { event_id: eventId })
-          if (result !== null) {
-            await refreshPolls()
-          }
-        }}
-      >
-        Next (by order)
-      </button>
+      {/* Start/Stop Game Controls */}
+      <div className="flex flex-wrap gap-4 items-center">
+        {!autoAdvanceEnabled ? (
+          <button
+            className="px-6 py-3 rounded-lg border-2 font-bold text-lg bg-green-500 text-white border-green-600 hover:bg-green-600 transition-colors"
+            onClick={async () => {
+              if (!eventId) return
+              const result = await call('/api/mod/game/start', { event_id: eventId })
+              if (result !== null) {
+                await refreshPolls()
+              }
+            }}
+          >
+            ▶ Start Game
+          </button>
+        ) : (
+          <button
+            className="px-6 py-3 rounded-lg border-2 font-bold text-lg bg-red-500 text-white border-red-600 hover:bg-red-600 transition-colors"
+            onClick={async () => {
+              if (!eventId) return
+              const result = await call('/api/mod/game/stop', { event_id: eventId })
+              if (result !== null) {
+                await refreshPolls()
+              }
+            }}
+          >
+            ⏸ Stop Game
+          </button>
+        )}
+      </div>
 
       {/* Poll Management Section */}
       <div className="mt-6 border rounded-xl p-4 space-y-4">
@@ -329,8 +300,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                 setNewPollQuestion('')
                 setNewPollOptions(['', ''])
                 setNewPollOrder(polls.length)
-                setNewPollDuration(30)
-                setNewPollResults(8)
                 setNewPollCorrectIndex(null)
               }
             }}
@@ -351,34 +320,15 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                 className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-900">Order</label>
-                <input
-                  type="number"
-                  value={newPollOrder}
-                  onChange={e => setNewPollOrder(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-900">Duration (s)</label>
-                <input
-                  type="number"
-                  value={newPollDuration}
-                  onChange={e => setNewPollDuration(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-900">Results (s)</label>
-                <input
-                  type="number"
-                  value={newPollResults}
-                  onChange={e => setNewPollResults(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-900">Order</label>
+              <input
+                type="number"
+                value={newPollOrder}
+                onChange={e => setNewPollOrder(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Duration and results use global settings above</p>
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-900">Options</label>
@@ -451,8 +401,8 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                   event_id: eventId,
                   question: newPollQuestion.trim(),
                   order_index: newPollOrder,
-                  duration_seconds: newPollDuration,
-                  results_seconds: newPollResults,
+                  duration_seconds: eventDuration,
+                  results_seconds: eventResults,
                   options: validOptions,
                   correct_option_index: newPollCorrectIndex !== null ? newPollCorrectIndex : null,
                 })
@@ -471,118 +421,118 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
           </div>
         )}
 
-        {/* Existing Polls */}
-        <div className="space-y-2">
-          {polls.map(poll => {
-            const isExpanded = expandedPolls.has(poll.id)
-            const options = pollOptions[poll.id] || []
-            return (
-              <div key={poll.id} className="border rounded-lg p-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="font-medium">
-                      {poll.order_index}. {poll.question}
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      State: {poll.state} | Duration: {poll.duration_seconds}s | Options: {options.length}
-                      {poll.correct_option_id && (
-                        <span className="ml-2 text-green-600 font-semibold">✓ Answer set</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        const newExpanded = new Set(expandedPolls)
-                        if (isExpanded) {
-                          newExpanded.delete(poll.id)
-                          // Reset adding option state when collapsing
-                          if (addingOptionToPoll === poll.id) {
-                            setAddingOptionToPoll(null)
-                            setNewOptionLabel('')
-                          }
-                        } else {
-                          newExpanded.add(poll.id)
-                        }
-                        setExpandedPolls(newExpanded)
-                      }}
-                      className="px-2 py-1 text-sm rounded border hover:bg-gray-50"
-                    >
-                      {isExpanded ? 'Hide' : 'Edit'}
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm(`Delete poll "${poll.question}"?`)) {
-                          const result = await call('/api/poll/delete', { poll_id: poll.id })
-                          if (result !== null) {
-                            await refreshPolls()
-                          }
-                        }
-                      }}
-                      className="px-2 py-1 text-sm rounded border text-red-600 hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="mt-3 space-y-3 pt-3 border-t">
-                    {/* Edit Poll */}
-                    <div className="space-y-2">
-                      <input
-                        value={poll.question}
-                        onChange={async e => {
-                          const result = await call('/api/poll/update', {
-                            poll_id: poll.id,
-                            question: e.target.value,
-                          })
-                          if (result !== null) await refreshPolls()
-                        }}
-                        className="w-full border rounded px-2 py-1"
-                      />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input
-                          type="number"
-                          value={poll.order_index}
-                          onChange={async e => {
-                            const result = await call('/api/poll/update', {
-                              poll_id: poll.id,
-                              order_index: Number(e.target.value),
-                            })
-                            if (result !== null) await refreshPolls()
-                          }}
-                          className="border rounded px-2 py-1"
-                          placeholder="Order"
-                        />
-                        <input
-                          type="number"
-                          value={poll.duration_seconds}
-                          onChange={async e => {
-                            const result = await call('/api/poll/update', {
-                              poll_id: poll.id,
-                              duration_seconds: Number(e.target.value),
-                            })
-                            if (result !== null) await refreshPolls()
-                          }}
-                          className="border rounded px-2 py-1"
-                          placeholder="Duration"
-                        />
-                        <input
-                          type="number"
-                          value={poll.results_seconds}
-                          onChange={async e => {
-                            const result = await call('/api/poll/update', {
-                              poll_id: poll.id,
-                              results_seconds: Number(e.target.value),
-                            })
-                            if (result !== null) await refreshPolls()
-                          }}
-                          className="border rounded px-2 py-1"
-                          placeholder="Results"
-                        />
+        {/* Questions List */}
+        <div className="border rounded-xl p-4 space-y-4">
+          <h3 className="font-semibold">Questions ({polls.length})</h3>
+          <div className="space-y-4">
+            {polls.map(poll => {
+              const isExpanded = expandedPolls.has(poll.id)
+              const options = pollOptions[poll.id] || []
+              const correctOption = poll.correct_option_id ? options.find(o => o.id === poll.correct_option_id) : null
+              return (
+                <div key={poll.id} className="border rounded-lg p-4 bg-white">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <div className="font-semibold text-lg">
+                        {poll.order_index}. {poll.question}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {options.length} options
+                        {correctOption && (
+                          <span className="ml-2 text-green-600 font-medium">✓ Correct: {correctOption.label}</span>
+                        )}
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const newExpanded = new Set(expandedPolls)
+                          if (isExpanded) {
+                            newExpanded.delete(poll.id)
+                            if (addingOptionToPoll === poll.id) {
+                              setAddingOptionToPoll(null)
+                              setNewOptionLabel('')
+                            }
+                          } else {
+                            newExpanded.add(poll.id)
+                          }
+                          setExpandedPolls(newExpanded)
+                        }}
+                        className="px-3 py-1 text-sm rounded border hover:bg-gray-50"
+                      >
+                        {isExpanded ? 'Hide' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Delete poll "${poll.question}"?`)) {
+                            const result = await call('/api/poll/delete', { poll_id: poll.id })
+                            if (result !== null) {
+                              await refreshPolls()
+                            }
+                          }
+                        }}
+                        className="px-3 py-1 text-sm rounded border text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Options Display */}
+                  <div className="space-y-2">
+                    {options.map((opt) => (
+                      <div
+                        key={opt.id}
+                        className={`p-2 rounded border ${
+                          poll.correct_option_id === opt.id
+                            ? 'bg-green-50 border-green-300'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {poll.correct_option_id === opt.id && (
+                            <span className="text-green-600 font-bold">✓</span>
+                          )}
+                          <span className={poll.correct_option_id === opt.id ? 'font-semibold text-green-700' : 'text-gray-700'}>
+                            {opt.label}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="mt-4 space-y-3 pt-3 border-t">
+                      {/* Edit Poll */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium">Question</label>
+                        <input
+                          value={poll.question}
+                          onChange={async e => {
+                            const result = await call('/api/poll/update', {
+                              poll_id: poll.id,
+                              question: e.target.value,
+                            })
+                            if (result !== null) await refreshPolls()
+                          }}
+                          className="w-full border rounded px-3 py-2"
+                        />
+                        <div>
+                          <label className="block text-sm font-medium">Order</label>
+                          <input
+                            type="number"
+                            value={poll.order_index}
+                            onChange={async e => {
+                              const result = await call('/api/poll/update', {
+                                poll_id: poll.id,
+                                order_index: Number(e.target.value),
+                              })
+                              if (result !== null) await refreshPolls()
+                            }}
+                            className="w-full border rounded px-3 py-2"
+                          />
+                        </div>
+                      </div>
 
                     {/* Options */}
                     <div>
@@ -715,11 +665,12 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                         )}
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
