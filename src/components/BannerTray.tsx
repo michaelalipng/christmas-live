@@ -28,10 +28,20 @@ function normalizeUrl(raw: string): string {
 
 export default function BannerTray({ eventId }: { eventId: UUID }) {
   const [banner, setBanner] = useState<Banner | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+
+  // Helper function to check if banner is expired
+  function isBannerExpired(b: Banner | null): boolean {
+    if (!b || !b.expires_at) return false
+    return Date.now() >= Date.parse(b.expires_at)
+  }
 
   // load current active once
   useEffect(() => {
     let alive = true
+    // Reset immediately to prevent showing banner from previous event
+    setBanner(null)
+    setIsLoading(true)
     ;(async () => {
       const { data } = await supabase
         .from('banners')
@@ -41,7 +51,14 @@ export default function BannerTray({ eventId }: { eventId: UUID }) {
         .order('created_at', { ascending: false })
         .limit(1)
       if (!alive) return
-      setBanner((data && data[0]) || null)
+      const candidate = (data && data[0]) || null
+      // Only set banner if it exists and is not expired
+      if (candidate && !isBannerExpired(candidate)) {
+        setBanner(candidate)
+      } else {
+        setBanner(null)
+      }
+      setIsLoading(false)
     })()
     return () => { alive = false }
   }, [eventId])
@@ -61,7 +78,13 @@ export default function BannerTray({ eventId }: { eventId: UUID }) {
             .eq('is_active', true)
             .order('created_at', { ascending: false })
             .limit(1)
-          setBanner((data && data[0]) || null)
+          const candidate = (data && data[0]) || null
+          // Only set banner if it exists and is not expired
+          if (candidate && !isBannerExpired(candidate)) {
+            setBanner(candidate)
+          } else {
+            setBanner(null)
+          }
         }
       )
       .subscribe()
@@ -115,7 +138,8 @@ export default function BannerTray({ eventId }: { eventId: UUID }) {
     }
   }
 
-  if (!banner) return null
+  // Don't render anything while loading to prevent flash
+  if (isLoading || !banner) return null
 
   return (
     <div className="fixed bottom-4 left-0 right-0 flex justify-center px-4 z-50">
