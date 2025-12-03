@@ -145,7 +145,7 @@ export default function OverlayLive() {
     if (!eventId) return
     
     let alive = true
-    let autoAdvanceEnabled = false
+    let interval: NodeJS.Timeout | null = null
     
     // Check if event has auto_advance enabled
     ;(async () => {
@@ -155,36 +155,36 @@ export default function OverlayLive() {
         .eq('id', eventId)
         .single()
       
-      if (eventData?.auto_advance) {
-        autoAdvanceEnabled = true
-        
-        // Poll for auto-advance every 2 seconds
-        const interval = setInterval(async () => {
+      if (eventData?.auto_advance && alive) {
+        // Poll for auto-advance every 1 second for more responsive transitions
+        interval = setInterval(async () => {
           if (!alive) {
-            clearInterval(interval)
+            if (interval) clearInterval(interval)
             return
           }
           
           try {
             // Call auto-advance endpoint (no auth needed for this check)
-            await fetch('/api/mod/auto-advance', {
+            const res = await fetch('/api/mod/auto-advance', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ event_id: eventId }),
             })
+            if (!res.ok) {
+              const text = await res.text()
+              console.error('Auto-advance API error:', text)
+            }
           } catch (err) {
             console.error('Auto-advance error:', err)
           }
-        }, 2000)
-        
-        return () => {
-          alive = false
-          clearInterval(interval)
-        }
+        }, 1000) // Check every 1 second for faster transitions
       }
     })()
     
-    return () => { alive = false }
+    return () => {
+      alive = false
+      if (interval) clearInterval(interval)
+    }
   }, [eventId])
 
   // Fetch correct answer when poll changes and has correct_option_id

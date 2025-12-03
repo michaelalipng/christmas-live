@@ -127,7 +127,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     }
   }, [eventId, refreshPolls])
 
-  // Auto-advance polling (client-side backup, but server-side cron is primary)
+  // Auto-advance polling (client-side polling since we removed cron jobs)
   useEffect(() => {
     if (!autoAdvanceEnabled || !eventId) return
     
@@ -144,11 +144,14 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         })
         if (res.ok) {
           await refreshPolls()
+        } else {
+          const text = await res.text()
+          console.error('Auto-advance API error:', text)
         }
       } catch (err) {
         console.error('Auto-advance error:', err)
       }
-    }, 2000) // Check every 2 seconds (server cron is primary)
+    }, 1000) // Check every 1 second for faster transitions
     
     return () => clearInterval(interval)
   }, [autoAdvanceEnabled, eventId, refreshPolls])
