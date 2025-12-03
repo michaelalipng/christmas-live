@@ -123,14 +123,14 @@ async function processEvent(event_id: string): Promise<NextResponse> {
       .eq('event_id', event_id)
       .eq('state', 'showing_results')
 
-    // Find the next poll to start (lowest order_index that's scheduled or closed)
-    // If no scheduled polls, loop back to the first poll (lowest order_index)
+    // Find the next poll to start (oldest created_at that's scheduled or closed)
+    // If no scheduled polls, loop back to the first poll (oldest created_at)
     const { data: nextPoll, error: nextError } = await supabaseAdmin
       .from('polls')
       .select('*')
       .eq('event_id', event_id)
       .in('state', ['scheduled', 'closed'])
-      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
 

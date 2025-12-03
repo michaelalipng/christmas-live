@@ -29,13 +29,13 @@ export async function POST(req: NextRequest) {
     .eq('event_id', event_id)
     .in('state', ['active', 'showing_results'])
 
-  // Find the first poll (lowest order_index)
+  // Find the first poll (oldest created_at)
   const { data: firstPoll, error: pollError } = await supabaseAdmin
     .from('polls')
     .select('*')
     .eq('event_id', event_id)
     .in('state', ['scheduled', 'closed'])
-    .order('order_index', { ascending: true })
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 

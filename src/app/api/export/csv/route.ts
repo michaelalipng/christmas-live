@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
 
   const { data: polls, error: e1 } = await supabaseAdmin
     .from('polls')
-    .select('id, question, order_index')
+    .select('id, question')
     .eq('event_id', eventId)
-    .order('order_index', { ascending: true })
+    .order('created_at', { ascending: true })
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 })
 
   const pollIds = polls.map(p => p.id)
@@ -32,12 +32,11 @@ export async function GET(req: NextRequest) {
   const optMap = new Map(options?.map(o => [o.id, o.label]) ?? [])
   const pollMap = new Map(polls.map(p => [p.id, p]))
 
-  let csv = 'poll_order,poll_question,option_label,device_id,voted_at\n'
+  let csv = 'poll_question,option_label,device_id,voted_at\n'
   for (const v of votes ?? []) {
     const p = pollMap.get(v.poll_id)
     const label = optMap.get(v.option_id) ?? ''
     const line = [
-      p?.order_index ?? '',
       JSON.stringify(p?.question ?? ''),
       JSON.stringify(label),
       v.device_id,

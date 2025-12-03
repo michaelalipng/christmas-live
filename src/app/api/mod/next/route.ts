@@ -23,13 +23,13 @@ export async function POST(req: NextRequest) {
   // close any active poll
   await supabaseAdmin.from('polls').update({ state: 'closed' }).eq('event_id', event_id).eq('state', 'active')
 
-  // find next scheduled by order_index
+    // find next scheduled by created_at
   const { data: nextPoll, error } = await supabaseAdmin
     .from('polls')
     .select('*')
     .eq('event_id', event_id)
     .eq('state', 'scheduled')
-    .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true })
     .limit(1).maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!nextPoll) return NextResponse.json({ ok: true, message: 'no scheduled polls' })

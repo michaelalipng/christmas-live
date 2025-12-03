@@ -29,7 +29,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   // Poll management state
   const [showCreatePoll, setShowCreatePoll] = useState(false)
   const [newPollQuestion, setNewPollQuestion] = useState('')
-  const [newPollOrder, setNewPollOrder] = useState(0)
   const [newPollOptions, setNewPollOptions] = useState<string[]>(['', ''])
   const [newPollCorrectIndex, setNewPollCorrectIndex] = useState<number | null>(null)
   const [pollOptions, setPollOptions] = useState<Record<UUID, PollOption[]>>({})
@@ -42,7 +41,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
-    const { data } = await supabase.from('polls').select('*').eq('event_id', eventId).order('order_index', { ascending: true })
+    const { data } = await supabase.from('polls').select('*').eq('event_id', eventId).order('created_at', { ascending: true })
     setPolls((data ?? []) as unknown as Poll[])
     const { data: a } = await supabase.from('polls').select('*').eq('event_id', eventId).eq('state', 'active').limit(1)
     setActive(((a ?? [])[0] as Poll) ?? null)
@@ -66,7 +65,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         .from('poll_options')
         .select('*')
         .in('poll_id', pollIds)
-        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true })
       
       const optionsMap: Record<UUID, PollOption[]> = {}
       for (const opt of (allOptions ?? []) as PollOption[]) {
@@ -84,7 +83,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       if (!alive) return
       setEventId(eid)
       if (!eid) return setLoading(false)
-      const { data } = await supabase.from('polls').select('*').eq('event_id', eid).order('order_index', { ascending: true })
+      const { data } = await supabase.from('polls').select('*').eq('event_id', eid).order('created_at', { ascending: true })
       setPolls((data ?? []) as unknown as Poll[])
       const { data: a } = await supabase.from('polls').select('*').eq('event_id', eid).eq('state', 'active').limit(1)
       setActive(((a ?? [])[0] as Poll) ?? null)
@@ -299,7 +298,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               if (!showCreatePoll) {
                 setNewPollQuestion('')
                 setNewPollOptions(['', ''])
-                setNewPollOrder(polls.length)
                 setNewPollCorrectIndex(null)
               }
             }}
@@ -319,16 +317,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                 placeholder="Enter poll question"
                 className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1 text-gray-900">Order</label>
-              <input
-                type="number"
-                value={newPollOrder}
-                onChange={e => setNewPollOrder(Number(e.target.value))}
-                className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Duration and results use global settings above</p>
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1 text-gray-900">Options</label>
@@ -400,7 +388,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                 const result = await call('/api/poll/create', {
                   event_id: eventId,
                   question: newPollQuestion.trim(),
-                  order_index: newPollOrder,
                   duration_seconds: eventDuration,
                   results_seconds: eventResults,
                   options: validOptions,
@@ -434,7 +421,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="font-semibold text-lg">
-                        {poll.order_index}. {poll.question}
+                        {poll.question}
                       </div>
                       <div className="text-sm text-gray-500 mt-1">
                         {options.length} options
@@ -517,21 +504,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                           }}
                           className="w-full border rounded px-3 py-2"
                         />
-                        <div>
-                          <label className="block text-sm font-medium">Order</label>
-                          <input
-                            type="number"
-                            value={poll.order_index}
-                            onChange={async e => {
-                              const result = await call('/api/poll/update', {
-                                poll_id: poll.id,
-                                order_index: Number(e.target.value),
-                              })
-                              if (result !== null) await refreshPolls()
-                            }}
-                            className="w-full border rounded px-3 py-2"
-                          />
-                        </div>
                       </div>
 
                     {/* Options */}

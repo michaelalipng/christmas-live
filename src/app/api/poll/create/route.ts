@@ -6,10 +6,10 @@ export async function POST(req: NextRequest) {
   const unauth = requireModAuth(req)
   if (unauth) return unauth
 
-  const { event_id, question, order_index, duration_seconds, results_seconds, options, correct_option_index } = await req.json()
+  const { event_id, question, duration_seconds, results_seconds, options, correct_option_index } = await req.json()
 
-  if (!event_id || !question || order_index === undefined) {
-    return NextResponse.json({ error: 'event_id, question, and order_index are required' }, { status: 400 })
+  if (!event_id || !question) {
+    return NextResponse.json({ error: 'event_id and question are required' }, { status: 400 })
   }
 
   // Create poll
@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     .insert({
       event_id,
       question,
-      order_index: order_index ?? 0,
       state: 'scheduled',
       duration_seconds: duration_seconds ?? 30,
       results_seconds: results_seconds ?? 8,
