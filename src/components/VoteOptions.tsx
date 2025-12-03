@@ -39,13 +39,35 @@ export default function VoteOptions({ pollId }: { pollId: UUID }) {
   if (!options.length) return null
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       {options.map(o => (
         <button
           key={o.id}
           onClick={() => handleVote(o.id)}
           disabled={sending !== null}
-          className="w-full border rounded-xl px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-60"
+          className="w-full rounded-xl px-6 py-4 text-left font-medium text-lg transition-all duration-200 disabled:opacity-60 backdrop-blur-md"
+          style={{
+            border: '1px solid rgba(56, 93, 117, 0.3)',
+            backgroundColor: 'rgba(242, 247, 247, 0.6)',
+            color: '#385D75',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          }}
+          onMouseEnter={(e) => {
+            if (!sending) {
+              e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
+              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!sending) {
+              e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.6)'
+              e.currentTarget.style.color = '#385D75'
+              e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.3)'
+              e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+            }
+          }}
         >
           {o.label}
         </button>

@@ -55,18 +55,18 @@ export default function PreviousResults({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-8 p-4 border border-gray-300 rounded-lg bg-gray-50">
-      <h3 className="text-sm font-semibold uppercase tracking-wide opacity-70 mb-2">
+    <div className="w-full max-w-2xl mx-auto mt-8 p-6 rounded-xl backdrop-blur-md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}>
+      <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#385D75' }}>
         Previous Question
       </h3>
-      <p className="text-lg font-medium mb-2">{poll.question}</p>
+      <p className="text-xl font-bold mb-4 leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{poll.question}</p>
       {correctAnswer ? (
-        <div className="text-base">
-          <span className="opacity-70">Answer: </span>
-          <span className="font-semibold">{correctAnswer.label}</span>
+        <div className="text-lg">
+          <span style={{ color: '#385D75', opacity: 0.8 }}>Answer: </span>
+          <span className="font-bold" style={{ color: '#D8A869' }}>{correctAnswer.label}</span>
         </div>
       ) : (
-        <div className="text-sm opacity-60 italic">No answer set</div>
+        <div className="text-sm italic" style={{ color: '#385D75', opacity: 0.6 }}>No answer set</div>
       )}
     </div>
   )

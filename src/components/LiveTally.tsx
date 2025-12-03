@@ -64,22 +64,22 @@ export default function LiveTally({ pollId }: { pollId: UUID }) {
   if (!options.length) return null
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs uppercase tracking-wide opacity-70">Live Votes: {total}</p>
-      <div className="grid gap-2">
+    <div className="space-y-4 p-5 rounded-xl backdrop-blur-md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}>
+      <p className="text-sm uppercase tracking-wider font-semibold" style={{ color: '#385D75' }}>Live Votes: <span className="font-bold" style={{ color: '#D8A869' }}>{total}</span></p>
+      <div className="grid gap-4">
         {options.map(o => {
           const c = counts[o.id] ?? 0
           const pct = total > 0 ? Math.round((c / total) * 100) : 0
           return (
-            <div key={o.id}>
-              <div className="flex justify-between text-sm">
-                <span>{o.label}</span>
-                <span className="tabular-nums">{c} • {pct}%</span>
+            <div key={o.id} className="space-y-2">
+              <div className="flex justify-between text-base font-medium">
+                <span style={{ color: '#385D75' }}>{o.label}</span>
+                <span className="tabular-nums font-bold" style={{ color: '#D8A869' }}>{c} • {pct}%</span>
               </div>
-              <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-3 w-full rounded-full overflow-hidden backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}>
                 <div
                   className="h-full"
-                  style={{ width: `${pct}%`, backgroundColor: 'black', transition: 'width 200ms linear' }}
+                  style={{ width: `${pct}%`, backgroundColor: '#D8A869', transition: 'width 200ms linear' }}
                 />
               </div>
             </div>

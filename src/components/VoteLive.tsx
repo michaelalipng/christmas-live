@@ -113,17 +113,17 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
 
   const content = useMemo(() => {
     if (state.status === 'loading') {
-      return <p className="opacity-70">Loading current question…</p>
+      return <p className="opacity-70" style={{ color: '#385D75' }}>Loading current question…</p>
     }
     if (state.status === 'idle') {
-      return <p className="opacity-70">Get Ready</p>
+      return <p className="opacity-70 text-xl" style={{ color: '#385D75' }}>Get Ready</p>
     }
     if (state.status === 'active') {
       return (
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wide opacity-70">Current Question</p>
-            <h2 className="text-2xl font-semibold">{state.poll.question}</h2>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Current Question</p>
+            <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
           </div>
           <Countdown
             nowMs={serverNowMs}
@@ -138,8 +138,8 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     if (state.status === 'results') {
       return (
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-wide opacity-70">Showing Results</p>
-          <h2 className="text-2xl font-semibold">{state.poll.question}</h2>
+          <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Showing Results</p>
+          <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
         </div>
       )
     }
