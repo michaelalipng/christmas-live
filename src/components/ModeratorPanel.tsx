@@ -39,6 +39,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [addingOptionToPoll, setAddingOptionToPoll] = useState<UUID | null>(null)
   const [newOptionLabel, setNewOptionLabel] = useState('')
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false)
+  const [eventAutoAdvance, setEventAutoAdvance] = useState<boolean | null>(null)
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
@@ -46,6 +47,17 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     setPolls((data ?? []) as unknown as Poll[])
     const { data: a } = await supabase.from('polls').select('*').eq('event_id', eventId).eq('state', 'active').limit(1)
     setActive(((a ?? [])[0] as Poll) ?? null)
+    
+    // Check event auto_advance status
+    const { data: eventData } = await supabase
+      .from('events')
+      .select('auto_advance')
+      .eq('id', eventId)
+      .single()
+    if (eventData) {
+      setEventAutoAdvance(eventData.auto_advance ?? false)
+      setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+    }
     
     // Refresh options for all polls
     if (data && data.length > 0) {
@@ -101,7 +113,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     }
   }, [eventId, refreshPolls])
 
-  // Auto-advance polling
+  // Auto-advance polling (client-side backup, but server-side cron is primary)
   useEffect(() => {
     if (!autoAdvanceEnabled || !eventId) return
     
@@ -122,7 +134,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       } catch (err) {
         console.error('Auto-advance error:', err)
       }
-    }, 1000) // Check every second
+    }, 2000) // Check every 2 seconds (server cron is primary)
     
     return () => clearInterval(interval)
   }, [autoAdvanceEnabled, eventId, refreshPolls])
@@ -211,18 +223,27 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
           }`}
           onClick={async () => {
+            if (!eventId) return
+            
             if (!autoAdvanceEnabled) {
-              // Starting auto-advance - if no active poll, start the first one
-              if (!active && polls.length > 0) {
-                const firstPoll = polls[0]
-                const result = await call('/api/mod/start', { poll_id: firstPoll.id })
-                if (result !== null) {
-                  await refreshPolls()
+              // Enable auto-advance on the event
+              const result = await call('/api/mod/auto-advance/enable', { event_id: eventId })
+              if (result !== null) {
+                setAutoAdvanceEnabled(true)
+                // Starting auto-advance - if no active poll, start the first one
+                if (!active && polls.length > 0) {
+                  const firstPoll = polls[0]
+                  await call('/api/mod/start', { poll_id: firstPoll.id })
                 }
+                await refreshPolls()
               }
-              setAutoAdvanceEnabled(true)
             } else {
-              setAutoAdvanceEnabled(false)
+              // Disable auto-advance on the event
+              const result = await call('/api/mod/auto-advance/disable', { event_id: eventId })
+              if (result !== null) {
+                setAutoAdvanceEnabled(false)
+                await refreshPolls()
+              }
             }
           }}
         >

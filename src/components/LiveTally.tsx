@@ -65,7 +65,7 @@ export default function LiveTally({ pollId }: { pollId: UUID }) {
 
   return (
     <div className="space-y-4 p-5 rounded-xl backdrop-blur-md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}>
-      <p className="text-sm uppercase tracking-wider font-semibold" style={{ color: '#385D75' }}>Live Votes: <span className="font-bold" style={{ color: '#D8A869' }}>{total}</span></p>
+      <p className="text-sm uppercase tracking-wider font-semibold" style={{ color: '#385D75' }}>Total Votes: <span className="font-bold" style={{ color: '#D8A869' }}>{total}</span></p>
       <div className="grid gap-4">
         {options.map(o => {
           const c = counts[o.id] ?? 0

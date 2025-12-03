@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { Poll, UUID } from '@/types/db'
 import { useServerTime } from '@/lib/useServerTime'
-import Countdown from '@/components/Countdown'
+import Countdown, { formatSeconds } from '@/components/Countdown'
 import PreviousResults from '@/components/PreviousResults'
 import VoteOptions from '@/components/VoteOptions'
 import LiveTally from '@/components/LiveTally'
@@ -57,7 +57,7 @@ async function fetchActiveOrRecentPoll(event_id: UUID): Promise<LiveState> {
     if (data && data[0]) return { status: 'active', poll: data[0] as Poll }
   }
 
-  // Then try showing_results (recent)
+  // Then try showing_results (recent) - treat as active so we can show results
   {
     const { data, error } = await supabase
       .from('polls')
@@ -67,7 +67,7 @@ async function fetchActiveOrRecentPoll(event_id: UUID): Promise<LiveState> {
       .order('results_until', { ascending: false, nullsFirst: false })
       .limit(1)
     if (error) console.warn('fetch results poll error', error)
-    if (data && data[0]) return { status: 'results', poll: data[0] as Poll }
+    if (data && data[0]) return { status: 'active', poll: data[0] as Poll }
   }
 
   return { status: 'idle' }
@@ -119,34 +119,36 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
       return <p className="opacity-70 text-xl" style={{ color: '#385D75' }}>Get Ready</p>
     }
     if (state.status === 'active') {
+      const isTimerEnded = state.poll.ends_at ? serverNowMs >= Date.parse(state.poll.ends_at) : false
+      const isShowingResults = state.poll.state === 'showing_results' || isTimerEnded
+      const nextQuestionAt = state.poll.results_until
+      
       return (
         <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Current Question</p>
             <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
           </div>
-          <Countdown
-            nowMs={serverNowMs}
-            endsAtIso={state.poll.ends_at}
-            totalDurationSec={state.poll.duration_seconds}
-          />
+          {!isShowingResults && (
+            <Countdown
+              nowMs={serverNowMs}
+              endsAtIso={state.poll.ends_at}
+              totalDurationSec={state.poll.duration_seconds}
+            />
+          )}
+          {isShowingResults && nextQuestionAt && (
+            <div className="w-full space-y-3">
+              <div className="text-base tabular-nums font-medium text-center" style={{ color: '#385D75' }}>
+                Next question in: <span className="font-bold" style={{ color: '#D8A869' }}>{formatSeconds(Math.max(0, Date.parse(nextQuestionAt) - serverNowMs))}</span>
+              </div>
+            </div>
+          )}
           <VoteOptions 
             pollId={state.poll.id} 
             correctOptionId={state.poll.correct_option_id}
             endsAtIso={state.poll.ends_at}
             serverNowMs={serverNowMs}
           />
-          <LiveTally pollId={state.poll.id} />
-        </div>
-      )
-    }
-    if (state.status === 'results') {
-      return (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Showing Results</p>
-            <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
-          </div>
           <LiveTally pollId={state.poll.id} />
         </div>
       )

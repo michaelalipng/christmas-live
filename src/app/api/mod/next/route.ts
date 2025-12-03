@@ -7,6 +7,19 @@ export async function POST(req: NextRequest) {
   const { event_id } = await req.json()
   if (!event_id) return NextResponse.json({ error: 'event_id required' }, { status: 400 })
 
+  // Get active poll IDs before closing them
+  const { data: activePolls } = await supabaseAdmin
+    .from('polls')
+    .select('id')
+    .eq('event_id', event_id)
+    .eq('state', 'active')
+  
+  // Delete all votes for active polls (reset for next time they show)
+  if (activePolls && activePolls.length > 0) {
+    const activePollIds = activePolls.map(p => p.id)
+    await supabaseAdmin.from('votes').delete().in('poll_id', activePollIds)
+  }
+  
   // close any active poll
   await supabaseAdmin.from('polls').update({ state: 'closed' }).eq('event_id', event_id).eq('state', 'active')
 

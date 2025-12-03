@@ -2,13 +2,58 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { requireModAuth } from '@/lib/modAuth'
 
-export async function POST(req: NextRequest) {
-  const unauth = requireModAuth(req)
-  if (unauth) return unauth
-  
-  const { event_id } = await req.json()
-  if (!event_id) return NextResponse.json({ error: 'event_id required' }, { status: 400 })
+// This endpoint can be called with or without auth
+// - GET (cron): processes all events with auto_advance=true
+// - POST with auth: processes a specific event_id
+export async function GET(req: NextRequest) {
+  // Cron job calls this endpoint - process all auto-advance events
+  return await processAllAutoAdvanceEvents()
+}
 
+export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get('x-admin-token')
+  const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN || process.env.ADMIN_TOKEN
+  const isAuthenticated = authHeader === adminToken
+  
+  const body = await req.json().catch(() => ({}))
+  const event_id = body.event_id
+
+  // If event_id provided, require auth
+  if (event_id && !isAuthenticated) {
+    const unauth = requireModAuth(req)
+    if (unauth) return unauth
+  }
+
+  // Process specific event
+  if (event_id) {
+    return await processEvent(event_id)
+  }
+
+  // Fallback: process all auto-advance events
+  return await processAllAutoAdvanceEvents()
+}
+
+async function processAllAutoAdvanceEvents() {
+  // Get all events with auto_advance enabled
+  const { data: events, error: eventsError } = await supabaseAdmin
+    .from('events')
+    .select('id')
+    .eq('auto_advance', true)
+
+  if (eventsError) {
+    return NextResponse.json({ error: eventsError.message }, { status: 500 })
+  }
+
+  const results = []
+  for (const event of events || []) {
+    const result = await processEvent(event.id)
+    results.push({ event_id: event.id, result: await result.json() })
+  }
+
+  return NextResponse.json({ ok: true, processed: results.length, results })
+}
+
+async function processEvent(event_id: string): Promise<NextResponse> {
   const now = new Date()
   const nowIso = now.toISOString()
 
@@ -49,6 +94,17 @@ export async function POST(req: NextRequest) {
 
   // If there are polls that finished showing results, advance to next
   if (resultsPolls && resultsPolls.length > 0) {
+    // Get poll IDs before closing them
+    const pollIdsToClose = resultsPolls.map(p => p.id)
+    
+    // Delete all votes for these polls (reset for next loop)
+    if (pollIdsToClose.length > 0) {
+      await supabaseAdmin
+        .from('votes')
+        .delete()
+        .in('poll_id', pollIdsToClose)
+    }
+    
     // Close all showing_results polls
     await supabaseAdmin
       .from('polls')
