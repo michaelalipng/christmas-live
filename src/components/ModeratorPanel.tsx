@@ -106,8 +106,22 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     if (!autoAdvanceEnabled || !eventId) return
     
     const interval = setInterval(async () => {
-      await call('/api/mod/auto-advance', { event_id: eventId })
-      await refreshPolls()
+      const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN
+      try {
+        const res = await fetch('/api/mod/auto-advance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-token': adminToken ?? '',
+          },
+          body: JSON.stringify({ event_id: eventId }),
+        })
+        if (res.ok) {
+          await refreshPolls()
+        }
+      } catch (err) {
+        console.error('Auto-advance error:', err)
+      }
     }, 1000) // Check every second
     
     return () => clearInterval(interval)
