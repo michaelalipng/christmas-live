@@ -125,8 +125,12 @@ async function processEvent(event_id: string): Promise<NextResponse> {
 
   // If there are polls that finished showing results, advance to next
   if (resultsPolls && resultsPolls.length > 0) {
-    // Get poll IDs before closing them
+    // Get poll IDs and created_at timestamps before closing them
     const pollIdsToClose = resultsPolls.map(p => p.id)
+    const latestClosedCreatedAt = resultsPolls.reduce((latest, p) => {
+      const pollCreatedAt = new Date(p.created_at).getTime()
+      return pollCreatedAt > latest ? pollCreatedAt : latest
+    }, 0)
     
     // Delete all votes for these polls (reset for next loop)
     if (pollIdsToClose.length > 0) {
@@ -143,20 +147,46 @@ async function processEvent(event_id: string): Promise<NextResponse> {
       .eq('event_id', event_id)
       .eq('state', 'showing_results')
 
-    // Find the next poll to start (oldest created_at that's scheduled or closed)
-    // If no scheduled polls, loop back to the first poll (oldest created_at)
-    const { data: nextPoll, error: nextError } = await supabaseAdmin
-      .from('polls')
-      .select('*')
-      .eq('event_id', event_id)
-      .in('state', ['scheduled', 'closed'])
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+    // Find the next poll to start
+    // First, try to find a poll that comes AFTER the one we just closed (by created_at)
+    // Or find any scheduled poll
+    let nextPoll = null
+    
+    // Try to find a poll created after the one we just closed
+    if (latestClosedCreatedAt > 0) {
+      const { data: laterPoll } = await supabaseAdmin
+        .from('polls')
+        .select('*')
+        .eq('event_id', event_id)
+        .in('state', ['scheduled', 'closed'])
+        .gt('created_at', new Date(latestClosedCreatedAt).toISOString())
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      
+      if (laterPoll) {
+        nextPoll = laterPoll
+      }
+    }
+    
+    // If no later poll found, loop back to the first poll (oldest created_at)
+    // But exclude the polls we just closed
+    if (!nextPoll) {
+      const { data: allPolls, error: nextError } = await supabaseAdmin
+        .from('polls')
+        .select('*')
+        .eq('event_id', event_id)
+        .in('state', ['scheduled', 'closed'])
+        .order('created_at', { ascending: true })
 
-    if (nextError) return NextResponse.json({ error: nextError.message }, { status: 500 })
+      if (nextError) return NextResponse.json({ error: nextError.message }, { status: 500 })
+      
+      // Filter out the polls we just closed
+      const availablePolls = (allPolls || []).filter(p => !pollIdsToClose.includes(p.id))
+      nextPoll = availablePolls[0] || null
+    }
 
-    if (nextPoll) {
+    if (nextPoll && !pollIdsToClose.includes(nextPoll.id)) {
       // Use the event settings we already fetched above
       const durationMs = durationSeconds * 1000
       const startsAt = now.toISOString()
