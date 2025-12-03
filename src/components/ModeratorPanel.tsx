@@ -24,6 +24,8 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [bType, setBType] = useState<'link'|'share'|'sms'|'none'>('link')
   const [bLabel, setBLabel] = useState('Open')
   const [bPayload, setBPayload] = useState('')
+  const [bSmsMessage, setBSmsMessage] = useState('')
+  const [bSmsUrl, setBSmsUrl] = useState('')
   const [bDuration, setBDuration] = useState<number>(10)
 
   // Poll management state
@@ -41,10 +43,42 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
-    const { data } = await supabase.from('polls').select('*').eq('event_id', eventId).order('created_at', { ascending: true })
+    console.log('[moderator] Refreshing polls for event:', eventId)
+    const { data, error: pollsError } = await supabase.from('polls').select('*').eq('event_id', eventId).order('created_at', { ascending: true })
+    if (pollsError) {
+      console.error('[moderator] Error fetching polls:', pollsError)
+    }
     setPolls((data ?? []) as unknown as Poll[])
-    const { data: a } = await supabase.from('polls').select('*').eq('event_id', eventId).eq('state', 'active').limit(1)
-    setActive(((a ?? [])[0] as Poll) ?? null)
+    console.log(`[moderator] Found ${data?.length || 0} total polls`)
+    
+    // Check for active polls with more detailed logging
+    const { data: a, error: activeError } = await supabase
+      .from('polls')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('state', 'active')
+      .limit(1)
+    
+    if (activeError) {
+      console.error('[moderator] Error fetching active poll:', activeError)
+    }
+    
+    const activePoll = ((a ?? [])[0] as Poll) ?? null
+    setActive(activePoll)
+    if (activePoll) {
+      const timeUntilEnd = activePoll.ends_at ? new Date(activePoll.ends_at).getTime() - Date.now() : null
+      console.log(`[moderator] Active poll found: ${activePoll.id} - "${activePoll.question}" (ends at ${activePoll.ends_at}, ${timeUntilEnd ? Math.round(timeUntilEnd / 1000) + 's remaining' : 'no end time'})`)
+    } else {
+      console.log('[moderator] No active poll found')
+      // Log all poll states for debugging
+      if (data && data.length > 0) {
+        const states = data.map(p => {
+          const poll = p as Poll
+          return `${poll.id.substring(0, 8)}: ${poll.state}${poll.ends_at ? ` (ends ${new Date(poll.ends_at).toLocaleTimeString()})` : ''}`
+        }).join(', ')
+        console.log(`[moderator] Poll states: ${states}`)
+      }
+    }
     
     // Check event settings
     // Note: If duration/results columns don't exist, use defaults
@@ -98,11 +132,43 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       if (!alive) return
       setEventId(eid)
       if (!eid) return setLoading(false)
+      
+      // Immediately fetch event's auto_advance status
+      try {
+        const { data: eventData } = await supabase
+          .from('events')
+          .select('auto_advance, duration_seconds, results_seconds')
+          .eq('id', eid)
+          .single()
+        if (eventData && alive) {
+          setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+          setEventDuration(eventData.duration_seconds ?? 30)
+          setEventResults(eventData.results_seconds ?? 8)
+        }
+      } catch {
+        // Try without duration/results columns
+        try {
+          const { data: eventData } = await supabase
+            .from('events')
+            .select('auto_advance')
+            .eq('id', eid)
+            .single()
+          if (eventData && alive) {
+            setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+          }
+        } catch {
+          // Ignore errors, will be set by refreshPolls
+        }
+      }
+      
+      // Load initial polls
       const { data } = await supabase.from('polls').select('*').eq('event_id', eid).order('created_at', { ascending: true })
-      setPolls((data ?? []) as unknown as Poll[])
-      const { data: a } = await supabase.from('polls').select('*').eq('event_id', eid).eq('state', 'active').limit(1)
-      setActive(((a ?? [])[0] as Poll) ?? null)
-      setLoading(false)
+      if (alive) {
+        setPolls((data ?? []) as unknown as Poll[])
+        const { data: a } = await supabase.from('polls').select('*').eq('event_id', eid).eq('state', 'active').limit(1)
+        setActive(((a ?? [])[0] as Poll) ?? null)
+        setLoading(false)
+      }
     })()
     return () => { alive = false }
   }, [campusSlug])
@@ -127,6 +193,42 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     }
   }, [eventId, refreshPolls])
 
+  // Subscribe to event changes (for auto_advance status)
+  useEffect(() => {
+    if (!eventId) return
+    const channel = supabase
+      .channel(`moderator:events:${eventId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'events',
+        filter: `id=eq.${eventId}`,
+      }, (payload) => {
+        const newData = payload.new as { auto_advance?: boolean; duration_seconds?: number; results_seconds?: number }
+        if (newData.auto_advance !== undefined) {
+          setAutoAdvanceEnabled(newData.auto_advance)
+        }
+        if (newData.duration_seconds !== undefined) {
+          setEventDuration(newData.duration_seconds)
+        }
+        if (newData.results_seconds !== undefined) {
+          setEventResults(newData.results_seconds)
+        }
+      })
+      .subscribe()
+    
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [eventId])
+
+  // Call refreshPolls when eventId is set
+  useEffect(() => {
+    if (eventId) {
+      refreshPolls()
+    }
+  }, [eventId, refreshPolls])
+
   // Auto-advance polling (client-side polling since we removed cron jobs)
   useEffect(() => {
     if (!autoAdvanceEnabled || !eventId) return
@@ -146,7 +248,18 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
           await refreshPolls()
         } else {
           const text = await res.text()
-          console.error('Auto-advance API error:', text)
+          let errorMsg = text
+          try {
+            const json = JSON.parse(text)
+            errorMsg = json.error || text
+          } catch {
+            // Not JSON, use text as-is
+          }
+          console.error('Auto-advance API error:', errorMsg)
+          // Only show error in UI if it's not a transient error
+          if (!errorMsg.includes('Event not found') && !errorMsg.includes('no_change')) {
+            setLastError(`Auto-advance: ${errorMsg}`)
+          }
         }
       } catch (err) {
         console.error('Auto-advance error:', err)
@@ -199,17 +312,25 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
 
   async function pushBanner() {
     if (!eventId) return
+    
+    // For SMS, combine message and URL
+    let finalPayload = bPayload
+    if (bType === 'sms') {
+      const parts = [bSmsMessage, bSmsUrl].filter(Boolean)
+      finalPayload = parts.join(' ')
+    }
+    
     const result = await call('/api/banner/push', {
       event_id: eventId,
       title: bTitle,
       body: bBody || null,
       cta_label: bLabel || null,
       cta_type: bType === 'none' ? null : bType,
-      cta_payload: bPayload || null,
+      cta_payload: finalPayload || null,
       duration_sec: bDuration || null,
     })
     if (result !== null) {
-      setBTitle(''); setBBody(''); setBPayload('')
+      setBTitle(''); setBBody(''); setBPayload(''); setBSmsMessage(''); setBSmsUrl('')
     }
   }
   async function clearBanner() {
@@ -235,7 +356,12 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       )}
       <div className="grid gap-2">
         <div className="text-sm opacity-70">Event: {eventId}</div>
-        <div className="text-sm">Status: {active ? `Active - ${active.question}` : autoAdvanceEnabled ? 'Waiting to start...' : 'Stopped'}</div>
+        <div className="text-sm">
+          Status: {active ? `Active - ${active.question}` : autoAdvanceEnabled ? (polls.length === 0 ? 'No polls to start' : 'Waiting to start...') : 'Stopped'}
+        </div>
+        {polls.length === 0 && (
+          <div className="text-sm text-yellow-600">⚠️ No polls found. Create at least one poll before starting the game.</div>
+        )}
       </div>
 
       {/* Global Settings */}
@@ -288,9 +414,18 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
             className="px-6 py-3 rounded-lg border-2 font-bold text-lg bg-green-500 text-white border-green-600 hover:bg-green-600 transition-colors"
             onClick={async () => {
               if (!eventId) return
+              setLastError(null)
+              console.log('[moderator] Starting game for event:', eventId)
               const result = await call('/api/mod/game/start', { event_id: eventId })
+              console.log('[moderator] Start game result:', result)
               if (result !== null) {
+                console.log('[moderator] Game started, refreshing polls in 500ms...')
+                // Small delay to ensure database has updated
+                await new Promise(resolve => setTimeout(resolve, 500))
                 await refreshPolls()
+                console.log('[moderator] Polls refreshed after start')
+              } else {
+                console.error('[moderator] Failed to start game - result was null')
               }
             }}
           >
@@ -682,7 +817,14 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
             <option value="none">No CTA</option>
           </select>
           <input value={bLabel} onChange={e=>setBLabel(e.target.value)} placeholder="CTA label (e.g., Open)" className="border rounded px-2 py-1" />
-          <input value={bPayload} onChange={e=>setBPayload(e.target.value)} placeholder="CTA payload (URL / text)" className="border rounded px-2 py-1 md:col-span-2" />
+          {bType === 'sms' ? (
+            <>
+              <input value={bSmsMessage} onChange={e=>setBSmsMessage(e.target.value)} placeholder="SMS message body" className="border rounded px-2 py-1 md:col-span-2" />
+              <input value={bSmsUrl} onChange={e=>setBSmsUrl(e.target.value)} placeholder="URL to append (optional)" className="border rounded px-2 py-1 md:col-span-2" />
+            </>
+          ) : (
+            <input value={bPayload} onChange={e=>setBPayload(e.target.value)} placeholder="CTA payload (URL / text)" className="border rounded px-2 py-1 md:col-span-2" />
+          )}
           <input type="number" value={bDuration} onChange={e=>setBDuration(Number(e.target.value))} placeholder="Duration seconds" className="border rounded px-2 py-1" />
         </div>
         <div className="flex gap-2">

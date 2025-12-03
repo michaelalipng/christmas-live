@@ -117,6 +117,8 @@ export default function VoteOptions({
         {options.map(o => {
           const isVotedOption = hasVoted && votedOptionId === o.id
           const isCorrectAnswer = isTimerEnded && correctOptionId === o.id
+          const isWrongAnswer = isTimerEnded && isVotedOption && !isCorrectAnswer
+          
           return (
             <button
               key={o.id}
@@ -126,18 +128,24 @@ export default function VoteOptions({
               style={{
                 border: isCorrectAnswer 
                   ? '2px solid rgba(34, 197, 94, 0.8)' 
-                  : isVotedOption 
-                    ? '1px solid rgba(216, 168, 105, 0.6)' 
-                    : '1px solid rgba(56, 93, 117, 0.3)',
+                  : isWrongAnswer
+                    ? '2px solid rgba(239, 68, 68, 0.8)'
+                    : isVotedOption 
+                      ? '1px solid rgba(216, 168, 105, 0.6)' 
+                      : '1px solid rgba(56, 93, 117, 0.3)',
                 backgroundColor: isCorrectAnswer 
                   ? 'rgba(34, 197, 94, 0.2)' 
-                  : isVotedOption 
-                    ? 'rgba(216, 168, 105, 0.4)' 
-                    : 'rgba(242, 247, 247, 0.6)',
-                color: '#385D75',
+                  : isWrongAnswer
+                    ? 'rgba(239, 68, 68, 0.2)'
+                    : isVotedOption 
+                      ? 'rgba(216, 168, 105, 0.4)' 
+                      : 'rgba(242, 247, 247, 0.6)',
+                color: isWrongAnswer ? '#EF4444' : '#385D75',
                 boxShadow: isCorrectAnswer 
                   ? '0 4px 6px -1px rgba(34, 197, 94, 0.3), 0 2px 4px -1px rgba(34, 197, 94, 0.2)' 
-                  : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                  : isWrongAnswer
+                    ? '0 4px 6px -1px rgba(239, 68, 68, 0.3), 0 2px 4px -1px rgba(239, 68, 68, 0.2)'
+                    : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                 cursor: hasVoted || isTimerEnded ? 'not-allowed' : 'pointer',
               }}
               onMouseEnter={(e) => {
@@ -152,18 +160,24 @@ export default function VoteOptions({
                 if (!sending) {
                   e.currentTarget.style.backgroundColor = isCorrectAnswer 
                     ? 'rgba(34, 197, 94, 0.2)' 
-                    : isVotedOption 
-                      ? 'rgba(216, 168, 105, 0.4)' 
-                      : 'rgba(242, 247, 247, 0.6)'
-                  e.currentTarget.style.color = '#385D75'
+                    : isWrongAnswer
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : isVotedOption 
+                        ? 'rgba(216, 168, 105, 0.4)' 
+                        : 'rgba(242, 247, 247, 0.6)'
+                  e.currentTarget.style.color = isWrongAnswer ? '#EF4444' : '#385D75'
                   e.currentTarget.style.border = isCorrectAnswer 
                     ? '2px solid rgba(34, 197, 94, 0.8)' 
-                    : isVotedOption 
-                      ? '1px solid rgba(216, 168, 105, 0.6)' 
-                      : '1px solid rgba(56, 93, 117, 0.3)'
+                    : isWrongAnswer
+                      ? '2px solid rgba(239, 68, 68, 0.8)'
+                      : isVotedOption 
+                        ? '1px solid rgba(216, 168, 105, 0.6)' 
+                        : '1px solid rgba(56, 93, 117, 0.3)'
                   e.currentTarget.style.boxShadow = isCorrectAnswer 
                     ? '0 4px 6px -1px rgba(34, 197, 94, 0.3), 0 2px 4px -1px rgba(34, 197, 94, 0.2)' 
-                    : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                    : isWrongAnswer
+                      ? '0 4px 6px -1px rgba(239, 68, 68, 0.3), 0 2px 4px -1px rgba(239, 68, 68, 0.2)'
+                      : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                 }
               }}
             >
@@ -171,7 +185,10 @@ export default function VoteOptions({
               {isCorrectAnswer && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl font-bold" style={{ color: '#22C55E' }}>✓</span>
               )}
-              {!isCorrectAnswer && isVotedOption && (
+              {isWrongAnswer && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl font-bold" style={{ color: '#EF4444' }}>✗</span>
+              )}
+              {!isTimerEnded && isVotedOption && !isCorrectAnswer && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl" style={{ color: '#D8A869' }}>✓</span>
               )}
             </button>

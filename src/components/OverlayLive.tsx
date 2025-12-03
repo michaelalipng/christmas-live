@@ -6,7 +6,6 @@ import type { Poll, PollOption, UUID } from '@/types/db'
 import { useServerTime } from '@/lib/useServerTime'
 import Countdown, { formatSeconds } from '@/components/Countdown'
 import LiveTally from '@/components/LiveTally'
-import PreviousResults from '@/components/PreviousResults'
 import dynamic from 'next/dynamic'
 const BannerTray = dynamic(() => import('@/components/BannerTray'), { ssr: false })
 
@@ -280,7 +279,6 @@ export default function OverlayLive() {
   return (
     <section className="w-full max-w-2xl mx-auto p-6">
       {content}
-      {eventId && <PreviousResults eventId={eventId} />}
       {eventId ? <BannerTray eventId={eventId} /> : null}
     </section>
   )

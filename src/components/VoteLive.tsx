@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Poll, UUID } from '@/types/db'
 import { useServerTime } from '@/lib/useServerTime'
 import Countdown, { formatSeconds } from '@/components/Countdown'
-import PreviousResults from '@/components/PreviousResults'
 import VoteOptions from '@/components/VoteOptions'
 import LiveTally from '@/components/LiveTally'
 import dynamic from 'next/dynamic'
@@ -111,6 +110,54 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     return () => { supabase.removeChannel(channel) }
   }, [eventId])
 
+  // Auto-advance polling (if event has auto_advance enabled)
+  // This ensures polls continue advancing even if moderator page is closed
+  useEffect(() => {
+    if (!eventId) return
+    
+    let alive = true
+    let interval: NodeJS.Timeout | null = null
+    
+    // Check if event has auto_advance enabled
+    ;(async () => {
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('auto_advance')
+        .eq('id', eventId)
+        .single()
+      
+      if (eventData?.auto_advance && alive) {
+        // Poll for auto-advance every 1 second for more responsive transitions
+        interval = setInterval(async () => {
+          if (!alive) {
+            if (interval) clearInterval(interval)
+            return
+          }
+          
+          try {
+            // Call auto-advance endpoint (no auth needed for this check)
+            const res = await fetch('/api/mod/auto-advance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ event_id: eventId }),
+            })
+            if (!res.ok) {
+              const text = await res.text()
+              console.error('[VoteLive] Auto-advance API error:', text)
+            }
+          } catch (err) {
+            console.error('[VoteLive] Auto-advance error:', err)
+          }
+        }, 1000) // Check every 1 second for faster transitions
+      }
+    })()
+    
+    return () => {
+      alive = false
+      if (interval) clearInterval(interval)
+    }
+  }, [eventId])
+
   const content = useMemo(() => {
     if (state.status === 'loading') {
       return <p className="opacity-70" style={{ color: '#385D75' }}>Loading current question…</p>
@@ -159,7 +206,6 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
   return (
     <section className="w-full max-w-2xl mx-auto p-6">
       {content}
-      {eventId && <PreviousResults eventId={eventId} />}
       {eventId ? <BannerTray eventId={eventId} /> : null}
     </section>
   )
