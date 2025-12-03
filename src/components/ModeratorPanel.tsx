@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { Poll, PollOption, UUID } from '@/types/db'
 
@@ -17,8 +17,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [polls, setPolls] = useState<Poll[]>([])
   const [active, setActive] = useState<Poll | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
   const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN // convenience for client calls
   const [bTitle, setBTitle] = useState('')
@@ -41,7 +39,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [addingOptionToPoll, setAddingOptionToPoll] = useState<UUID | null>(null)
   const [newOptionLabel, setNewOptionLabel] = useState('')
 
-  async function refreshPolls() {
+  const refreshPolls = useCallback(async () => {
     if (!eventId) return
     const { data } = await supabase.from('polls').select('*').eq('event_id', eventId).order('order_index', { ascending: true })
     setPolls((data ?? []) as unknown as Poll[])
@@ -64,7 +62,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       }
       setPollOptions(optionsMap)
     }
-  }
+  }, [eventId])
 
   useEffect(() => {
     let alive = true
@@ -100,7 +98,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [eventId])
+  }, [eventId, refreshPolls])
 
   async function call(path: string, body: Record<string, unknown>) {
     setLastError(null)
@@ -178,18 +176,11 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         <div className="text-sm">Active: {active ? active.question : 'None'}</div>
       </div>
 
-      {error && (
-        <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
-      )}
-
       <div className="flex flex-wrap gap-2">
         {polls.map(p => (
           <button
             key={p.id}
-            className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={actionLoading !== null}
+            className="px-3 py-2 rounded border hover:bg-gray-50"
             onClick={async () => {
               const result = await call('/api/mod/start', { poll_id: p.id })
               if (result !== null) {
@@ -197,7 +188,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               }
             }}
           >
-            {actionLoading === `Start Poll` ? 'Starting...' : `Start: ${p.order_index}. ${p.question.slice(0,40)}`}
+            Start: {p.order_index}. {p.question.slice(0,40)}
           </button>
         ))}
       </div>
@@ -205,8 +196,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       {active && (
         <div className="flex gap-2">
           <button 
-            className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
-            disabled={actionLoading !== null}
+            className="px-3 py-2 rounded border hover:bg-gray-50" 
             onClick={async () => {
               const result = await call('/api/mod/results', { poll_id: active.id })
               if (result !== null) {
@@ -214,11 +204,10 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               }
             }}
           >
-            {actionLoading === 'Show Results' ? 'Loading...' : 'Show Results'}
+            Show Results
           </button>
           <button 
-            className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
-            disabled={actionLoading !== null}
+            className="px-3 py-2 rounded border hover:bg-gray-50" 
             onClick={async () => {
               const result = await call('/api/mod/extend', { poll_id: active.id, seconds: 5 })
               if (result !== null) {
@@ -226,11 +215,10 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               }
             }}
           >
-            {actionLoading === 'Extend Poll' ? 'Extending...' : 'Extend +5s'}
+            Extend +5s
           </button>
           <button 
-            className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
-            disabled={actionLoading !== null}
+            className="px-3 py-2 rounded border hover:bg-gray-50" 
             onClick={async () => {
               const result = await call('/api/mod/end', { poll_id: active.id })
               if (result !== null) {
@@ -238,14 +226,13 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               }
             }}
           >
-            {actionLoading === 'End Poll' ? 'Ending...' : 'End'}
+            End
           </button>
         </div>
       )}
 
       <button 
-        className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" 
-        disabled={actionLoading !== null}
+        className="px-3 py-2 rounded border hover:bg-gray-50" 
         onClick={async () => {
           const result = await call('/api/mod/next', { event_id: eventId })
           if (result !== null) {
@@ -253,7 +240,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
           }
         }}
       >
-        {actionLoading === 'Next Poll' ? 'Loading...' : 'Next (by order)'}
+        Next (by order)
       </button>
 
       {/* Poll Management Section */}
