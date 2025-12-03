@@ -38,6 +38,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [expandedPolls, setExpandedPolls] = useState<Set<UUID>>(new Set())
   const [addingOptionToPoll, setAddingOptionToPoll] = useState<UUID | null>(null)
   const [newOptionLabel, setNewOptionLabel] = useState('')
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false)
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
@@ -99,6 +100,18 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       supabase.removeChannel(channel)
     }
   }, [eventId, refreshPolls])
+
+  // Auto-advance polling
+  useEffect(() => {
+    if (!autoAdvanceEnabled || !eventId) return
+    
+    const interval = setInterval(async () => {
+      await call('/api/mod/auto-advance', { event_id: eventId })
+      await refreshPolls()
+    }, 1000) // Check every second
+    
+    return () => clearInterval(interval)
+  }, [autoAdvanceEnabled, eventId, refreshPolls])
 
   async function call(path: string, body: Record<string, unknown>) {
     setLastError(null)
@@ -174,6 +187,33 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       <div className="grid gap-2">
         <div className="text-sm opacity-70">Event: {eventId}</div>
         <div className="text-sm">Active: {active ? active.question : 'None'}</div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <button
+          className={`px-4 py-2 rounded border font-semibold ${
+            autoAdvanceEnabled 
+              ? 'bg-green-500 text-white border-green-600 hover:bg-green-600' 
+              : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+          }`}
+          onClick={async () => {
+            if (!autoAdvanceEnabled) {
+              // Starting auto-advance - if no active poll, start the first one
+              if (!active && polls.length > 0) {
+                const firstPoll = polls[0]
+                const result = await call('/api/mod/start', { poll_id: firstPoll.id })
+                if (result !== null) {
+                  await refreshPolls()
+                }
+              }
+              setAutoAdvanceEnabled(true)
+            } else {
+              setAutoAdvanceEnabled(false)
+            }
+          }}
+        >
+          {autoAdvanceEnabled ? '⏸ Stop Auto-Advance' : '▶ Start Auto-Advance'}
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-2">

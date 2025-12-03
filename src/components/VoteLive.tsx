@@ -130,16 +130,24 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
             endsAtIso={state.poll.ends_at}
             totalDurationSec={state.poll.duration_seconds}
           />
-          <VoteOptions pollId={state.poll.id} />
+          <VoteOptions 
+            pollId={state.poll.id} 
+            correctOptionId={state.poll.correct_option_id}
+            endsAtIso={state.poll.ends_at}
+            serverNowMs={serverNowMs}
+          />
           <LiveTally pollId={state.poll.id} />
         </div>
       )
     }
     if (state.status === 'results') {
       return (
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Showing Results</p>
-          <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Showing Results</p>
+            <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
+          </div>
+          <LiveTally pollId={state.poll.id} />
         </div>
       )
     }

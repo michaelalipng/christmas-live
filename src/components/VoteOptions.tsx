@@ -4,12 +4,25 @@ import { supabase } from '@/lib/supabaseClient'
 import type { PollOption, UUID } from '@/types/db'
 import { getDeviceId } from '@/lib/deviceId'
 
-export default function VoteOptions({ pollId }: { pollId: UUID }) {
+export default function VoteOptions({ 
+  pollId, 
+  correctOptionId, 
+  endsAtIso, 
+  serverNowMs 
+}: { 
+  pollId: UUID
+  correctOptionId: UUID | null
+  endsAtIso: string | null
+  serverNowMs: number
+}) {
   const [options, setOptions] = useState<PollOption[]>([])
   const [sending, setSending] = useState<UUID | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hasVoted, setHasVoted] = useState<boolean>(false)
   const [votedOptionId, setVotedOptionId] = useState<UUID | null>(null)
+  
+  // Check if timer has ended
+  const isTimerEnded = endsAtIso ? serverNowMs >= Date.parse(endsAtIso) : false
 
   useEffect(() => {
     let alive = true
@@ -26,7 +39,7 @@ export default function VoteOptions({ pollId }: { pollId: UUID }) {
     return () => { alive = false }
   }, [pollId])
 
-  // Check if user has already voted
+  // Check if user has already voted (need to get poll's starts_at to check votes for this cycle)
   useEffect(() => {
     // Reset vote state when poll changes
     setHasVoted(false)
@@ -35,12 +48,25 @@ export default function VoteOptions({ pollId }: { pollId: UUID }) {
     
     let alive = true
     ;(async () => {
+      // Get the poll's starts_at to check votes for this specific cycle
+      const { data: pollData } = await supabase
+        .from('polls')
+        .select('starts_at')
+        .eq('id', pollId)
+        .single()
+      
+      if (!alive || !pollData?.starts_at) return
+      
       const device_id = getDeviceId()
+      // Check for votes in this poll cycle (matching starts_at)
       const { data, error } = await supabase
         .from('votes')
-        .select('option_id')
+        .select('option_id, created_at')
         .eq('poll_id', pollId)
         .eq('device_id', device_id)
+        .gte('created_at', pollData.starts_at)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
       
       if (!alive) return
@@ -87,35 +113,35 @@ export default function VoteOptions({ pollId }: { pollId: UUID }) {
   if (!options.length) return null
 
   return (
-    <div className="space-y-4">
-      {hasVoted && (
-        <div className="p-4 rounded-xl backdrop-blur-md text-center" style={{ backgroundColor: 'rgba(216, 168, 105, 0.3)', border: '1px solid rgba(216, 168, 105, 0.5)', color: '#385D75' }}>
-          <p className="font-semibold">✓ You have already voted</p>
-          {votedOptionId && (
-            <p className="text-sm mt-1 opacity-80">
-              Your vote: {options.find(o => o.id === votedOptionId)?.label}
-            </p>
-          )}
-        </div>
-      )}
-      <div className="grid gap-4">
+    <div className="grid gap-4">
         {options.map(o => {
           const isVotedOption = hasVoted && votedOptionId === o.id
+          const isCorrectAnswer = isTimerEnded && correctOptionId === o.id
           return (
             <button
               key={o.id}
               onClick={() => handleVote(o.id)}
-              disabled={sending !== null || hasVoted}
+              disabled={sending !== null || hasVoted || isTimerEnded}
               className="w-full rounded-xl px-6 py-4 text-left font-medium text-lg transition-all duration-200 disabled:opacity-60 backdrop-blur-md relative"
               style={{
-                border: isVotedOption ? '1px solid rgba(216, 168, 105, 0.6)' : '1px solid rgba(56, 93, 117, 0.3)',
-                backgroundColor: isVotedOption ? 'rgba(216, 168, 105, 0.4)' : 'rgba(242, 247, 247, 0.6)',
+                border: isCorrectAnswer 
+                  ? '2px solid rgba(34, 197, 94, 0.8)' 
+                  : isVotedOption 
+                    ? '1px solid rgba(216, 168, 105, 0.6)' 
+                    : '1px solid rgba(56, 93, 117, 0.3)',
+                backgroundColor: isCorrectAnswer 
+                  ? 'rgba(34, 197, 94, 0.2)' 
+                  : isVotedOption 
+                    ? 'rgba(216, 168, 105, 0.4)' 
+                    : 'rgba(242, 247, 247, 0.6)',
                 color: '#385D75',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                cursor: hasVoted ? 'not-allowed' : 'pointer',
+                boxShadow: isCorrectAnswer 
+                  ? '0 4px 6px -1px rgba(34, 197, 94, 0.3), 0 2px 4px -1px rgba(34, 197, 94, 0.2)' 
+                  : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                cursor: hasVoted || isTimerEnded ? 'not-allowed' : 'pointer',
               }}
               onMouseEnter={(e) => {
-                if (!sending && !hasVoted) {
+                if (!sending && !hasVoted && !isTimerEnded) {
                   e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
                   e.currentTarget.style.color = 'white'
                   e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
@@ -124,21 +150,33 @@ export default function VoteOptions({ pollId }: { pollId: UUID }) {
               }}
               onMouseLeave={(e) => {
                 if (!sending) {
-                  e.currentTarget.style.backgroundColor = isVotedOption ? 'rgba(216, 168, 105, 0.4)' : 'rgba(242, 247, 247, 0.6)'
+                  e.currentTarget.style.backgroundColor = isCorrectAnswer 
+                    ? 'rgba(34, 197, 94, 0.2)' 
+                    : isVotedOption 
+                      ? 'rgba(216, 168, 105, 0.4)' 
+                      : 'rgba(242, 247, 247, 0.6)'
                   e.currentTarget.style.color = '#385D75'
-                  e.currentTarget.style.borderColor = isVotedOption ? 'rgba(216, 168, 105, 0.6)' : 'rgba(56, 93, 117, 0.3)'
-                  e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                  e.currentTarget.style.border = isCorrectAnswer 
+                    ? '2px solid rgba(34, 197, 94, 0.8)' 
+                    : isVotedOption 
+                      ? '1px solid rgba(216, 168, 105, 0.6)' 
+                      : '1px solid rgba(56, 93, 117, 0.3)'
+                  e.currentTarget.style.boxShadow = isCorrectAnswer 
+                    ? '0 4px 6px -1px rgba(34, 197, 94, 0.3), 0 2px 4px -1px rgba(34, 197, 94, 0.2)' 
+                    : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                 }
               }}
             >
               {o.label}
-              {isVotedOption && (
+              {isCorrectAnswer && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl font-bold" style={{ color: '#22C55E' }}>✓</span>
+              )}
+              {!isCorrectAnswer && isVotedOption && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl" style={{ color: '#D8A869' }}>✓</span>
               )}
             </button>
           )
         })}
-      </div>
     </div>
   )
 }
