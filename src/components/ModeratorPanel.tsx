@@ -154,8 +154,14 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       const text = await res.text()
 
       if (!res.ok) {
-        const msg = text || `HTTP ${res.status} ${res.statusText}`
-        console.error('Moderator API error', { path, status: res.status, msg })
+        let msg = text
+        try {
+          const json = JSON.parse(text)
+          msg = json.error || json.message || text || `HTTP ${res.status} ${res.statusText}`
+        } catch {
+          msg = text || `HTTP ${res.status} ${res.statusText}`
+        }
+        console.error('Moderator API error', { path, status: res.status, msg, text })
         setLastError(`${path}: ${msg}`)
         return null
       }
