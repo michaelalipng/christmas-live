@@ -7,7 +7,6 @@ export default function VotePage() {
   const { campus } = useParams() as { campus: string }
   return (
     <PageShell>
-      <h1 className="text-2xl font-bold mb-4">Voting — {campus}</h1>
       <VoteLive campusSlug={campus} />
     </PageShell>
   )

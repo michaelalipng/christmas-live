@@ -4,114 +4,70 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { Poll, PollOption } from '@/types/db'
 
-type VoteRow = {
-  id: string
-  poll_id: string
-  option_id: string
-  created_at: string
-}
-
-type OptionWithVotes = {
-  option: PollOption
-  count: number
-  percentage: number
-}
-
 export default function PreviousResults({ eventId }: { eventId: string }) {
   const [poll, setPoll] = useState<Poll | null>(null)
-  const [results, setResults] = useState<OptionWithVotes[]>([])
+  const [correctAnswer, setCorrectAnswer] = useState<PollOption | null>(null)
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      // Fetch the latest results poll for this event
+      // Fetch the latest closed poll (not currently showing results)
+      // We want the previous poll, not the one currently active or showing results
       const { data: pollData, error: pollError } = await supabase
-        .from('latest_poll_for_event')
+        .from('polls')
         .select('*')
         .eq('event_id', eventId)
+        .eq('state', 'closed')
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
       if (pollError || !pollData || !alive) {
         setPoll(null)
-        setResults([])
+        setCorrectAnswer(null)
         return
       }
 
       const latestPoll = pollData as Poll
       setPoll(latestPoll)
 
-      // Fetch options for this poll
-      const { data: options, error: optionsError } = await supabase
-        .from('poll_options')
-        .select('*')
-        .eq('poll_id', latestPoll.id)
-        .order('order_index', { ascending: true })
+      // If there's a correct answer, fetch it
+      if (latestPoll.correct_option_id) {
+        const { data: option, error: optionError } = await supabase
+          .from('poll_options')
+          .select('*')
+          .eq('id', latestPoll.correct_option_id)
+          .maybeSingle()
 
-      if (optionsError || !options || !alive) {
-        setResults([])
-        return
+        if (!optionError && option && alive) {
+          setCorrectAnswer(option as PollOption)
+        }
       }
-
-      // Fetch votes for this poll
-      const { data: votes, error: votesError } = await supabase
-        .from('votes')
-        .select('*')
-        .eq('poll_id', latestPoll.id)
-
-      if (votesError || !alive) {
-        setResults([])
-        return
-      }
-
-      const votesList = (votes as VoteRow[]) || []
-
-      // Count votes per option
-      const voteCounts = new Map<string, number>()
-      for (const vote of votesList) {
-        voteCounts.set(vote.option_id, (voteCounts.get(vote.option_id) || 0) + 1)
-      }
-
-      const totalVotes = votesList.length
-      const optionsWithVotes: OptionWithVotes[] = (options as PollOption[]).map((opt) => {
-        const count = voteCounts.get(opt.id) || 0
-        const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0
-        return { option: opt, count, percentage }
-      })
-
-      if (alive) setResults(optionsWithVotes)
     })()
     return () => {
       alive = false
     }
   }, [eventId])
 
-  if (!poll) return null
+  // Don't show if no poll or if poll is still active/showing results
+  if (!poll || poll.state === 'active' || (poll.state === 'showing_results' && !poll.correct_option_id)) {
+    return null
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-8 p-4 border border-gray-300 rounded-lg bg-gray-50">
       <h3 className="text-sm font-semibold uppercase tracking-wide opacity-70 mb-2">
-        Previous Poll
+        Previous Question
       </h3>
-      <p className="text-lg font-medium mb-4">{poll.question}</p>
-      <div className="space-y-3">
-        {results.map(({ option, count, percentage }) => (
-          <div key={option.id} className="space-y-1">
-            <div className="flex justify-between items-center text-sm">
-              <span className="font-medium">{option.label}</span>
-              <span className="text-gray-600">
-                {count} ({Math.round(percentage)}%)
-              </span>
-            </div>
-            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gray-700 transition-all duration-300"
-                style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+      <p className="text-lg font-medium mb-2">{poll.question}</p>
+      {correctAnswer ? (
+        <div className="text-base">
+          <span className="opacity-70">Answer: </span>
+          <span className="font-semibold">{correctAnswer.label}</span>
+        </div>
+      ) : (
+        <div className="text-sm opacity-60 italic">No answer set</div>
+      )}
     </div>
   )
 }

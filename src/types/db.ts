@@ -30,6 +30,7 @@ export type Poll = {
   duration_seconds: number
   results_seconds: number
   order_index: number
+  correct_option_id: UUID | null
   starts_at: string | null
   ends_at: string | null
   results_until: string | null

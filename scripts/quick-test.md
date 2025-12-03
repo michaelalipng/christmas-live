@@ -83,3 +83,4 @@ INSERT INTO poll_options (poll_id, label, order_index) VALUES
 ✅ No console errors  
 ✅ All moderator buttons work  
 
+

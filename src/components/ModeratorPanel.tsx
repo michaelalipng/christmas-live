@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import type { Poll, UUID } from '@/types/db'
+import type { Poll, PollOption, UUID } from '@/types/db'
 
 type IdRow = { id: UUID }
 
@@ -28,12 +28,42 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [bPayload, setBPayload] = useState('')
   const [bDuration, setBDuration] = useState<number>(10)
 
+  // Poll management state
+  const [showCreatePoll, setShowCreatePoll] = useState(false)
+  const [newPollQuestion, setNewPollQuestion] = useState('')
+  const [newPollOrder, setNewPollOrder] = useState(0)
+  const [newPollDuration, setNewPollDuration] = useState(30)
+  const [newPollResults, setNewPollResults] = useState(8)
+  const [newPollOptions, setNewPollOptions] = useState<string[]>(['', ''])
+  const [newPollCorrectIndex, setNewPollCorrectIndex] = useState<number | null>(null)
+  const [pollOptions, setPollOptions] = useState<Record<UUID, PollOption[]>>({})
+  const [expandedPolls, setExpandedPolls] = useState<Set<UUID>>(new Set())
+  const [addingOptionToPoll, setAddingOptionToPoll] = useState<UUID | null>(null)
+  const [newOptionLabel, setNewOptionLabel] = useState('')
+
   async function refreshPolls() {
     if (!eventId) return
     const { data } = await supabase.from('polls').select('*').eq('event_id', eventId).order('order_index', { ascending: true })
     setPolls((data ?? []) as unknown as Poll[])
     const { data: a } = await supabase.from('polls').select('*').eq('event_id', eventId).eq('state', 'active').limit(1)
     setActive(((a ?? [])[0] as Poll) ?? null)
+    
+    // Refresh options for all polls
+    if (data && data.length > 0) {
+      const pollIds = data.map(p => p.id)
+      const { data: allOptions } = await supabase
+        .from('poll_options')
+        .select('*')
+        .in('poll_id', pollIds)
+        .order('order_index', { ascending: true })
+      
+      const optionsMap: Record<UUID, PollOption[]> = {}
+      for (const opt of (allOptions ?? []) as PollOption[]) {
+        if (!optionsMap[opt.poll_id]) optionsMap[opt.poll_id] = []
+        optionsMap[opt.poll_id].push(opt)
+      }
+      setPollOptions(optionsMap)
+    }
   }
 
   useEffect(() => {
@@ -225,6 +255,411 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       >
         {actionLoading === 'Next Poll' ? 'Loading...' : 'Next (by order)'}
       </button>
+
+      {/* Poll Management Section */}
+      <div className="mt-6 border rounded-xl p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-semibold">Poll Management</h3>
+          <button
+            onClick={() => {
+              setShowCreatePoll(!showCreatePoll)
+              if (!showCreatePoll) {
+                setNewPollQuestion('')
+                setNewPollOptions(['', ''])
+                setNewPollOrder(polls.length)
+                setNewPollDuration(30)
+                setNewPollResults(8)
+                setNewPollCorrectIndex(null)
+              }
+            }}
+            className="px-3 py-1 text-sm rounded border hover:bg-gray-50"
+          >
+            {showCreatePoll ? 'Cancel' : '+ New Poll'}
+          </button>
+        </div>
+
+        {showCreatePoll && (
+          <div className="border border-gray-300 rounded-lg p-4 space-y-3 bg-white text-gray-900 shadow-sm">
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-900">Question</label>
+              <input
+                value={newPollQuestion}
+                onChange={e => setNewPollQuestion(e.target.value)}
+                placeholder="Enter poll question"
+                className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-900">Order</label>
+                <input
+                  type="number"
+                  value={newPollOrder}
+                  onChange={e => setNewPollOrder(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-900">Duration (s)</label>
+                <input
+                  type="number"
+                  value={newPollDuration}
+                  onChange={e => setNewPollDuration(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-900">Results (s)</label>
+                <input
+                  type="number"
+                  value={newPollResults}
+                  onChange={e => setNewPollResults(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-gray-900">Options</label>
+              <p className="text-xs text-gray-600 mb-2">Select the correct answer with the radio button</p>
+              {newPollOptions.map((opt, idx) => (
+                <div key={idx} className={`flex gap-2 mb-2 items-center p-2 rounded ${newPollCorrectIndex === idx ? 'bg-green-50 border-2 border-green-500' : 'border border-gray-200'}`}>
+                  <input
+                    type="radio"
+                    name="correct-answer"
+                    checked={newPollCorrectIndex === idx}
+                    onChange={() => setNewPollCorrectIndex(idx)}
+                    className="cursor-pointer w-5 h-5 text-green-600 focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    disabled={!opt.trim()}
+                  />
+                  <span className={`text-sm font-medium ${newPollCorrectIndex === idx ? 'text-green-700' : 'text-gray-700'}`}>
+                    {newPollCorrectIndex === idx && '✓ '}Correct
+                  </span>
+                  <input
+                    value={opt}
+                    onChange={e => {
+                      const updated = [...newPollOptions]
+                      updated[idx] = e.target.value
+                      setNewPollOptions(updated)
+                      // Clear correct answer if this option is cleared
+                      if (!e.target.value.trim() && newPollCorrectIndex === idx) {
+                        setNewPollCorrectIndex(null)
+                      }
+                    }}
+                    placeholder={`Option ${idx + 1}`}
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {newPollOptions.length > 2 && (
+                    <button
+                      onClick={() => {
+                        const updated = newPollOptions.filter((_, i) => i !== idx)
+                        setNewPollOptions(updated)
+                        // Adjust correct index if needed
+                        if (newPollCorrectIndex === idx) {
+                          setNewPollCorrectIndex(null)
+                        } else if (newPollCorrectIndex !== null && newPollCorrectIndex > idx) {
+                          setNewPollCorrectIndex(newPollCorrectIndex - 1)
+                        }
+                      }}
+                      className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setNewPollOptions([...newPollOptions, ''])}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                + Add Option
+              </button>
+            </div>
+            <button
+              onClick={async () => {
+                if (!newPollQuestion.trim()) {
+                  setLastError('Question is required')
+                  return
+                }
+                const validOptions = newPollOptions.filter(o => o.trim().length > 0)
+                if (validOptions.length < 2) {
+                  setLastError('At least 2 options are required')
+                  return
+                }
+                const result = await call('/api/poll/create', {
+                  event_id: eventId,
+                  question: newPollQuestion.trim(),
+                  order_index: newPollOrder,
+                  duration_seconds: newPollDuration,
+                  results_seconds: newPollResults,
+                  options: validOptions,
+                  correct_option_index: newPollCorrectIndex !== null ? newPollCorrectIndex : null,
+                })
+                if (result !== null) {
+                  await refreshPolls()
+                  setShowCreatePoll(false)
+                  setNewPollQuestion('')
+                  setNewPollOptions(['', ''])
+                  setNewPollCorrectIndex(null)
+                }
+              }}
+              className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Create Poll
+            </button>
+          </div>
+        )}
+
+        {/* Existing Polls */}
+        <div className="space-y-2">
+          {polls.map(poll => {
+            const isExpanded = expandedPolls.has(poll.id)
+            const options = pollOptions[poll.id] || []
+            return (
+              <div key={poll.id} className="border rounded-lg p-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="font-medium">
+                      {poll.order_index}. {poll.question}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      State: {poll.state} | Duration: {poll.duration_seconds}s | Options: {options.length}
+                      {poll.correct_option_id && (
+                        <span className="ml-2 text-green-600 font-semibold">✓ Answer set</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const newExpanded = new Set(expandedPolls)
+                        if (isExpanded) {
+                          newExpanded.delete(poll.id)
+                          // Reset adding option state when collapsing
+                          if (addingOptionToPoll === poll.id) {
+                            setAddingOptionToPoll(null)
+                            setNewOptionLabel('')
+                          }
+                        } else {
+                          newExpanded.add(poll.id)
+                        }
+                        setExpandedPolls(newExpanded)
+                      }}
+                      className="px-2 py-1 text-sm rounded border hover:bg-gray-50"
+                    >
+                      {isExpanded ? 'Hide' : 'Edit'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Delete poll "${poll.question}"?`)) {
+                          const result = await call('/api/poll/delete', { poll_id: poll.id })
+                          if (result !== null) {
+                            await refreshPolls()
+                          }
+                        }
+                      }}
+                      className="px-2 py-1 text-sm rounded border text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="mt-3 space-y-3 pt-3 border-t">
+                    {/* Edit Poll */}
+                    <div className="space-y-2">
+                      <input
+                        value={poll.question}
+                        onChange={async e => {
+                          const result = await call('/api/poll/update', {
+                            poll_id: poll.id,
+                            question: e.target.value,
+                          })
+                          if (result !== null) await refreshPolls()
+                        }}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="number"
+                          value={poll.order_index}
+                          onChange={async e => {
+                            const result = await call('/api/poll/update', {
+                              poll_id: poll.id,
+                              order_index: Number(e.target.value),
+                            })
+                            if (result !== null) await refreshPolls()
+                          }}
+                          className="border rounded px-2 py-1"
+                          placeholder="Order"
+                        />
+                        <input
+                          type="number"
+                          value={poll.duration_seconds}
+                          onChange={async e => {
+                            const result = await call('/api/poll/update', {
+                              poll_id: poll.id,
+                              duration_seconds: Number(e.target.value),
+                            })
+                            if (result !== null) await refreshPolls()
+                          }}
+                          className="border rounded px-2 py-1"
+                          placeholder="Duration"
+                        />
+                        <input
+                          type="number"
+                          value={poll.results_seconds}
+                          onChange={async e => {
+                            const result = await call('/api/poll/update', {
+                              poll_id: poll.id,
+                              results_seconds: Number(e.target.value),
+                            })
+                            if (result !== null) await refreshPolls()
+                          }}
+                          className="border rounded px-2 py-1"
+                          placeholder="Results"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Options */}
+                    <div>
+                      <div className="font-medium text-sm mb-2">Options</div>
+                      {options.map(opt => (
+                        <div key={opt.id} className="flex gap-2 mb-2">
+                          <input
+                            value={opt.label}
+                            onChange={async e => {
+                              const result = await call('/api/poll/option/update', {
+                                option_id: opt.id,
+                                label: e.target.value,
+                              })
+                              if (result !== null) await refreshPolls()
+                            }}
+                            className="flex-1 border rounded px-2 py-1"
+                          />
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Delete option "${opt.label}"?`)) {
+                                const result = await call('/api/poll/option/delete', { option_id: opt.id })
+                                if (result !== null) await refreshPolls()
+                              }
+                            }}
+                            className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {addingOptionToPoll === poll.id ? (
+                        <div className="flex gap-2">
+                          <input
+                            value={newOptionLabel}
+                            onChange={e => setNewOptionLabel(e.target.value)}
+                            placeholder="Enter option label"
+                            className="flex-1 border rounded px-2 py-1"
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter' && newOptionLabel.trim()) {
+                                const result = await call('/api/poll/option/create', {
+                                  poll_id: poll.id,
+                                  label: newOptionLabel.trim(),
+                                })
+                                if (result !== null) {
+                                  await refreshPolls()
+                                  setNewOptionLabel('')
+                                  setAddingOptionToPoll(null)
+                                }
+                              }
+                              if (e.key === 'Escape') {
+                                setAddingOptionToPoll(null)
+                                setNewOptionLabel('')
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            onClick={async () => {
+                              if (newOptionLabel.trim()) {
+                                const result = await call('/api/poll/option/create', {
+                                  poll_id: poll.id,
+                                  label: newOptionLabel.trim(),
+                                })
+                                if (result !== null) {
+                                  await refreshPolls()
+                                  setNewOptionLabel('')
+                                  setAddingOptionToPoll(null)
+                                }
+                              }
+                            }}
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAddingOptionToPoll(null)
+                              setNewOptionLabel('')
+                            }}
+                            className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setAddingOptionToPoll(poll.id)
+                            setNewOptionLabel('')
+                          }}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          + Add Option
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Correct Answer */}
+                    {options.length > 0 && (
+                      <div className="border-t pt-3">
+                        <label className="block font-medium text-sm mb-2">
+                          Correct Answer
+                          <span className="text-xs font-normal text-gray-500 ml-2">
+                            (Shown on voting page after poll closes)
+                          </span>
+                        </label>
+                        <select
+                          value={poll.correct_option_id || ''}
+                          onChange={async e => {
+                            const result = await call('/api/poll/update', {
+                              poll_id: poll.id,
+                              correct_option_id: e.target.value || null,
+                            })
+                            if (result !== null) await refreshPolls()
+                          }}
+                          className="w-full border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">-- Select correct answer --</option>
+                          {options.map(opt => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.label}
+                              {poll.correct_option_id === opt.id && ' ✓'}
+                            </option>
+                          ))}
+                        </select>
+                        {poll.correct_option_id && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Correct answer is set
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       <div className="mt-6 border rounded-xl p-4 space-y-3">
         <h3 className="font-semibold">Banner</h3>
