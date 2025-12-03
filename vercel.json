@@ -1,9 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/mod/auto-advance",
-      "schedule": "* * * * *"
-    }
-  ]
-}
-

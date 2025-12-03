@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { requireModAuth } from '@/lib/modAuth'
 
-// This endpoint can be called with or without auth
-// - GET (cron): processes all events with auto_advance=true
-// - POST with auth: processes a specific event_id
-export async function GET(req: NextRequest) {
-  // Cron job calls this endpoint - process all auto-advance events
-  return await processAllAutoAdvanceEvents()
-}
-
+// This endpoint processes auto-advance for events
+// - POST with event_id: processes that event (allows unauthenticated if event has auto_advance enabled)
+// - POST with auth: processes a specific event_id (always works)
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('x-admin-token')
   const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN || process.env.ADMIN_TOKEN
@@ -18,18 +13,34 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const event_id = body.event_id
 
-  // If event_id provided, require auth
-  if (event_id && !isAuthenticated) {
+  // If event_id provided
+  if (event_id) {
+    // If authenticated, process it
+    if (isAuthenticated) {
+      return await processEvent(event_id)
+    }
+    
+    // If not authenticated, check if event has auto_advance enabled
+    const { data: eventData } = await supabaseAdmin
+      .from('events')
+      .select('auto_advance')
+      .eq('id', event_id)
+      .single()
+    
+    // If auto_advance is enabled, allow unauthenticated processing
+    if (eventData?.auto_advance) {
+      return await processEvent(event_id)
+    }
+    
+    // Otherwise require auth
     const unauth = requireModAuth(req)
     if (unauth) return unauth
-  }
-
-  // Process specific event
-  if (event_id) {
     return await processEvent(event_id)
   }
 
-  // Fallback: process all auto-advance events
+  // No event_id - require auth to process all
+  const unauth = requireModAuth(req)
+  if (unauth) return unauth
   return await processAllAutoAdvanceEvents()
 }
 

@@ -140,6 +140,53 @@ export default function OverlayLive() {
     return () => { supabase.removeChannel(channel) }
   }, [eventId])
 
+  // Auto-advance polling (if event has auto_advance enabled)
+  useEffect(() => {
+    if (!eventId) return
+    
+    let alive = true
+    let autoAdvanceEnabled = false
+    
+    // Check if event has auto_advance enabled
+    ;(async () => {
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('auto_advance')
+        .eq('id', eventId)
+        .single()
+      
+      if (eventData?.auto_advance) {
+        autoAdvanceEnabled = true
+        
+        // Poll for auto-advance every 2 seconds
+        const interval = setInterval(async () => {
+          if (!alive) {
+            clearInterval(interval)
+            return
+          }
+          
+          try {
+            // Call auto-advance endpoint (no auth needed for this check)
+            await fetch('/api/mod/auto-advance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ event_id: eventId }),
+            })
+          } catch (err) {
+            console.error('Auto-advance error:', err)
+          }
+        }, 2000)
+        
+        return () => {
+          alive = false
+          clearInterval(interval)
+        }
+      }
+    })()
+    
+    return () => { alive = false }
+  }, [eventId])
+
   // Fetch correct answer when poll changes and has correct_option_id
   useEffect(() => {
     if (state.status !== 'active' || !state.poll.correct_option_id) {
