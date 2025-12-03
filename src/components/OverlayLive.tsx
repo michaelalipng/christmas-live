@@ -43,6 +43,22 @@ async function getLatestEventId(campus_id: UUID): Promise<UUID | null> {
 }
 
 async function fetchActiveOrRecentPoll(event_id: UUID): Promise<LiveState> {
+  // First check if the game is active (auto_advance enabled)
+  const { data: eventData, error: eventError } = await supabase
+    .from('events')
+    .select('auto_advance')
+    .eq('id', event_id)
+    .single()
+  
+  if (eventError) {
+    console.warn('Error checking event auto_advance:', eventError)
+  }
+  
+  // Only show polls if the game is active
+  if (!eventData?.auto_advance) {
+    return { status: 'idle' }
+  }
+  
   // Try active first
   {
     const { data, error } = await supabase
@@ -122,7 +138,7 @@ export default function OverlayLive() {
     return () => { alive = false }
   }, [campusSlug, eventParam])
 
-  // Realtime: subscribe to polls changes for this event
+  // Realtime: subscribe to polls and events changes for this event
   useEffect(() => {
     if (!eventId) return
     const channel = supabase
@@ -135,8 +151,31 @@ export default function OverlayLive() {
           setState(s)
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${eventId}` },
+        async () => {
+          console.log('[OverlayLive] Event updated, refreshing poll state...')
+          const s = await fetchActiveOrRecentPoll(eventId)
+          setState(s)
+        }
+      )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
+  }, [eventId])
+
+  // Periodically check event auto_advance status (every 3 seconds)
+  // This ensures we catch changes even if realtime subscription doesn't fire
+  // This will detect when game is turned on/off and switch between welcome screen and polls
+  useEffect(() => {
+    if (!eventId) return
+    
+    const interval = setInterval(async () => {
+      const s = await fetchActiveOrRecentPoll(eventId)
+      setState(s)
+    }, 3000) // Check every 3 seconds
+    
+    return () => clearInterval(interval)
   }, [eventId])
 
   // Auto-advance polling (if event has auto_advance enabled)
@@ -213,7 +252,30 @@ export default function OverlayLive() {
       return <p className="opacity-70" style={{ color: '#385D75' }}>Loading current question…</p>
     }
     if (state.status === 'idle') {
-      return <p className="opacity-70 text-xl" style={{ color: '#385D75' }}>Get Ready</p>
+      return (
+        <div className="flex flex-col items-center space-y-6 w-full px-4">
+          <h1 className="text-3xl md:text-4xl font-bold text-center" style={{ color: '#D8A869', fontFamily: 'Forum, serif' }}>
+            Welcome to
+          </h1>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 w-full max-w-5xl">
+            <div className="flex-shrink-0 order-2 md:order-1">
+              <img 
+                src="/Manger-Scene-Pic.png" 
+                alt="Manger Scene" 
+                className="max-w-[200px] md:max-w-xs h-auto"
+                style={{ maxHeight: '300px' }}
+              />
+            </div>
+            <div className="flex-shrink-0 order-1 md:order-2">
+              <img 
+                src="/Christmas-Header.png" 
+                alt="Christmas Header" 
+                className="max-w-[280px] md:max-w-md h-auto"
+              />
+            </div>
+          </div>
+        </div>
+      )
     }
     if (state.status === 'active') {
       const isTimerEnded = state.poll.ends_at ? serverNowMs >= Date.parse(state.poll.ends_at) : false

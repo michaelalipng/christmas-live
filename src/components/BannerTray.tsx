@@ -142,13 +142,55 @@ export default function BannerTray({ eventId }: { eventId: UUID }) {
   if (isLoading || !banner) return null
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 flex justify-center px-4 z-50">
-      <div className="max-w-lg w-full rounded-2xl border bg-white shadow p-4">
-        <div className="font-semibold">{banner.title}</div>
-        {banner.body && <p className="text-sm mt-1">{banner.body}</p>}
+    <div className="fixed inset-0 flex items-center justify-center px-4 z-50 pointer-events-none">
+      {/* Banner content */}
+      <div 
+        className="relative max-w-lg w-full rounded-2xl p-6 backdrop-blur-md pointer-events-auto text-center"
+        style={{
+          border: '1px solid rgba(56, 93, 117, 0.3)',
+          backgroundColor: 'rgba(242, 247, 247, 0.5)',
+          boxShadow: '0 20px 60px -12px rgba(56, 93, 117, 0.4), 0 0 0 1px rgba(242, 247, 247, 0.2)',
+          animation: 'bannerPopUp 0.3s ease-out',
+        }}
+      >
+        <h3 
+          className="text-2xl font-bold mb-2"
+          style={{ 
+            color: '#385D75',
+            fontFamily: 'Forum, serif',
+          }}
+        >
+          {banner.title}
+        </h3>
+        {banner.body && (
+          <p 
+            className="text-base mb-4"
+            style={{ color: '#575555' }}
+          >
+            {banner.body}
+          </p>
+        )}
         {banner.cta_label && banner.cta_type && (
-          <div className="mt-3">
-            <button onClick={handleCTA} className="px-3 py-2 rounded bg-black text-white">
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={handleCTA}
+              className="px-6 py-3 rounded-lg border-2 font-semibold transition-all duration-200 backdrop-blur-md w-full sm:w-auto"
+              style={{
+                borderColor: 'rgba(216, 168, 105, 0.6)',
+                backgroundColor: 'rgba(242, 247, 247, 0.9)',
+                color: '#385D75',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(216, 168, 105, 0.9)'
+                e.currentTarget.style.color = 'white'
+                e.currentTarget.style.borderColor = 'rgba(216, 168, 105, 0.8)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.9)'
+                e.currentTarget.style.color = '#385D75'
+                e.currentTarget.style.borderColor = 'rgba(216, 168, 105, 0.6)'
+              }}
+            >
               {banner.cta_label}
             </button>
           </div>
