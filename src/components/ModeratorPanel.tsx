@@ -364,6 +364,35 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         )}
       </div>
 
+      {/* Banner Section */}
+      <div className="border rounded-xl p-4 space-y-3 bg-white">
+        <h3 className="font-semibold">Banner</h3>
+        <div className="grid gap-2 md:grid-cols-2">
+          <input value={bTitle} onChange={e=>setBTitle(e.target.value)} placeholder="Title" className="border rounded px-2 py-1" />
+          <input value={bBody} onChange={e=>setBBody(e.target.value)} placeholder="Body (optional)" className="border rounded px-2 py-1" />
+          <select value={bType} onChange={e=>setBType(e.target.value as 'link'|'share'|'sms'|'none')} className="border rounded px-2 py-1">
+            <option value="link">Link</option>
+            <option value="share">Share</option>
+            <option value="sms">SMS</option>
+            <option value="none">No CTA</option>
+          </select>
+          <input value={bLabel} onChange={e=>setBLabel(e.target.value)} placeholder="CTA label (e.g., Open)" className="border rounded px-2 py-1" />
+          {bType === 'sms' ? (
+            <>
+              <input value={bSmsMessage} onChange={e=>setBSmsMessage(e.target.value)} placeholder="SMS message body" className="border rounded px-2 py-1 md:col-span-2" />
+              <input value={bSmsUrl} onChange={e=>setBSmsUrl(e.target.value)} placeholder="URL to append (optional)" className="border rounded px-2 py-1 md:col-span-2" />
+            </>
+          ) : (
+            <input value={bPayload} onChange={e=>setBPayload(e.target.value)} placeholder="CTA payload (URL / text)" className="border rounded px-2 py-1 md:col-span-2" />
+          )}
+          <input type="number" value={bDuration} onChange={e=>setBDuration(Number(e.target.value))} placeholder="Duration seconds" className="border rounded px-2 py-1" />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={pushBanner} className="px-3 py-2 rounded border hover:bg-gray-50">Push Banner</button>
+          <button onClick={clearBanner} className="px-3 py-2 rounded border hover:bg-gray-50">Clear</button>
+        </div>
+      </div>
+
       {/* Global Settings */}
       <div className="border rounded-xl p-4 space-y-3 bg-white">
         <h3 className="font-semibold">Global Settings</h3>
@@ -802,34 +831,6 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               )
             })}
           </div>
-        </div>
-      </div>
-
-      <div className="mt-6 border rounded-xl p-4 space-y-3">
-        <h3 className="font-semibold">Banner</h3>
-        <div className="grid gap-2 md:grid-cols-2">
-          <input value={bTitle} onChange={e=>setBTitle(e.target.value)} placeholder="Title" className="border rounded px-2 py-1" />
-          <input value={bBody} onChange={e=>setBBody(e.target.value)} placeholder="Body (optional)" className="border rounded px-2 py-1" />
-          <select value={bType} onChange={e=>setBType(e.target.value as 'link'|'share'|'sms'|'none')} className="border rounded px-2 py-1">
-            <option value="link">Link</option>
-            <option value="share">Share</option>
-            <option value="sms">SMS</option>
-            <option value="none">No CTA</option>
-          </select>
-          <input value={bLabel} onChange={e=>setBLabel(e.target.value)} placeholder="CTA label (e.g., Open)" className="border rounded px-2 py-1" />
-          {bType === 'sms' ? (
-            <>
-              <input value={bSmsMessage} onChange={e=>setBSmsMessage(e.target.value)} placeholder="SMS message body" className="border rounded px-2 py-1 md:col-span-2" />
-              <input value={bSmsUrl} onChange={e=>setBSmsUrl(e.target.value)} placeholder="URL to append (optional)" className="border rounded px-2 py-1 md:col-span-2" />
-            </>
-          ) : (
-            <input value={bPayload} onChange={e=>setBPayload(e.target.value)} placeholder="CTA payload (URL / text)" className="border rounded px-2 py-1 md:col-span-2" />
-          )}
-          <input type="number" value={bDuration} onChange={e=>setBDuration(Number(e.target.value))} placeholder="Duration seconds" className="border rounded px-2 py-1" />
-        </div>
-        <div className="flex gap-2">
-          <button onClick={pushBanner} className="px-3 py-2 rounded border hover:bg-gray-50">Push Banner</button>
-          <button onClick={clearBanner} className="px-3 py-2 rounded border hover:bg-gray-50">Clear</button>
         </div>
       </div>
     </div>
