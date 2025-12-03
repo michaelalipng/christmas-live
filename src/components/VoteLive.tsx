@@ -126,12 +126,27 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${eventId}` },
         async () => {
+          console.log('[VoteLive] Event updated, refreshing poll state...')
           const s = await fetchActiveOrRecentPoll(eventId)
           setState(s)
         }
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
+  }, [eventId])
+
+  // Periodically check event auto_advance status (every 3 seconds)
+  // This ensures we catch changes even if realtime subscription doesn't fire
+  // This will detect when game is turned on/off and switch between welcome screen and polls
+  useEffect(() => {
+    if (!eventId) return
+    
+    const interval = setInterval(async () => {
+      const s = await fetchActiveOrRecentPoll(eventId)
+      setState(s)
+    }, 3000) // Check every 3 seconds
+    
+    return () => clearInterval(interval)
   }, [eventId])
 
   // Auto-advance polling (if event has auto_advance enabled)
@@ -181,6 +196,15 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
       if (interval) clearInterval(interval)
     }
   }, [eventId])
+
+  const handleInviteFriend = () => {
+    const message = 'Come sit with me for Christmas Service at HPC. https://healingplacechurch.org/christmas'
+    const encoded = encodeURIComponent(message)
+    // Android prefers ?body=, iOS uses &body=
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
+    const href = isAndroid ? `sms:?body=${encoded}` : `sms:&body=${encoded}`
+    window.location.href = href
+  }
 
   const content = useMemo(() => {
     if (state.status === 'loading') {
@@ -251,8 +275,59 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
   }, [state, serverNowMs])
 
   return (
-    <section className="w-full max-w-2xl mx-auto p-6">
+    <section className="w-full max-w-2xl mx-auto p-6 pb-4">
       {content}
+      
+      {/* Action buttons - always visible at bottom of content */}
+      <div className="mt-8 mb-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+          <a
+            href="https://healingplacechurch.org/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-6 py-3 rounded-lg border-2 font-semibold text-center transition-all duration-200 backdrop-blur-md w-full sm:w-auto"
+            style={{
+              borderColor: 'rgba(56, 93, 117, 0.6)',
+              backgroundColor: 'rgba(242, 247, 247, 0.9)',
+              color: '#385D75',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.9)'
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.8)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.9)'
+              e.currentTarget.style.color = '#385D75'
+              e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.6)'
+            }}
+          >
+            Learn More
+          </a>
+          <button
+            onClick={handleInviteFriend}
+            className="px-6 py-3 rounded-lg border-2 font-semibold transition-all duration-200 backdrop-blur-md w-full sm:w-auto"
+            style={{
+              borderColor: 'rgba(216, 168, 105, 0.6)',
+              backgroundColor: 'rgba(242, 247, 247, 0.9)',
+              color: '#385D75',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(216, 168, 105, 0.9)'
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.borderColor = 'rgba(216, 168, 105, 0.8)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.9)'
+              e.currentTarget.style.color = '#385D75'
+              e.currentTarget.style.borderColor = 'rgba(216, 168, 105, 0.6)'
+            }}
+          >
+            Invite a Friend to Christmas
+          </button>
+        </div>
+      </div>
+      
       {eventId ? <BannerTray eventId={eventId} /> : null}
     </section>
   )
