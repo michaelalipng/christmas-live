@@ -47,15 +47,30 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     setActive(((a ?? [])[0] as Poll) ?? null)
     
     // Check event settings
-    const { data: eventData } = await supabase
-      .from('events')
-      .select('auto_advance, duration_seconds, results_seconds')
-      .eq('id', eventId)
-      .single()
-    if (eventData) {
-      setAutoAdvanceEnabled(eventData.auto_advance ?? false)
-      setEventDuration(eventData.duration_seconds ?? 30)
-      setEventResults(eventData.results_seconds ?? 8)
+    // Note: If duration/results columns don't exist, use defaults
+    try {
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('auto_advance, duration_seconds, results_seconds')
+        .eq('id', eventId)
+        .single()
+      if (eventData) {
+        setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+        setEventDuration(eventData.duration_seconds ?? 30)
+        setEventResults(eventData.results_seconds ?? 8)
+      }
+    } catch {
+      // Columns don't exist yet, use defaults
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('auto_advance')
+        .eq('id', eventId)
+        .single()
+      if (eventData) {
+        setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+      }
+      setEventDuration(30)
+      setEventResults(8)
     }
     
     // Refresh options for all polls

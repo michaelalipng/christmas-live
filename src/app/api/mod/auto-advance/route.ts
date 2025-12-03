@@ -138,14 +138,24 @@ async function processEvent(event_id: string): Promise<NextResponse> {
 
     if (nextPoll) {
       // Get event's global duration and results settings
-      const { data: eventData } = await supabaseAdmin
-        .from('events')
-        .select('duration_seconds, results_seconds')
-        .eq('id', event_id)
-        .single()
+      // Note: If columns don't exist, use defaults
+      let durationSeconds = 30
+      let resultsSeconds = 8
       
-      const durationSeconds = eventData?.duration_seconds ?? 30
-      const resultsSeconds = eventData?.results_seconds ?? 8
+      try {
+        const { data: eventData } = await supabaseAdmin
+          .from('events')
+          .select('duration_seconds, results_seconds')
+          .eq('id', event_id)
+          .single()
+        
+        if (eventData) {
+          durationSeconds = eventData.duration_seconds ?? 30
+          resultsSeconds = eventData.results_seconds ?? 8
+        }
+      } catch {
+        // Columns don't exist yet, use defaults
+      }
       const durationMs = durationSeconds * 1000
       const startsAt = now.toISOString()
       const endsAt = new Date(now.getTime() + durationMs).toISOString()

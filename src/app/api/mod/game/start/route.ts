@@ -10,17 +10,25 @@ export async function POST(req: NextRequest) {
   if (!event_id) return NextResponse.json({ error: 'event_id required' }, { status: 400 })
 
   // Get event settings (global duration and results)
-  const { data: event, error: eventError } = await supabaseAdmin
-    .from('events')
-    .select('duration_seconds, results_seconds')
-    .eq('id', event_id)
-    .single()
-
-  if (eventError) return NextResponse.json({ error: eventError.message }, { status: 500 })
-  if (!event) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
-
-  const durationSeconds = event.duration_seconds ?? 30
-  const resultsSeconds = event.results_seconds ?? 8
+  // Note: If columns don't exist, use defaults
+  let durationSeconds = 30
+  let resultsSeconds = 8
+  
+  try {
+    const { data: event } = await supabaseAdmin
+      .from('events')
+      .select('duration_seconds, results_seconds')
+      .eq('id', event_id)
+      .single()
+    
+    if (event) {
+      durationSeconds = event.duration_seconds ?? 30
+      resultsSeconds = event.results_seconds ?? 8
+    }
+  } catch {
+    // Columns don't exist yet, use defaults
+    console.log('Event duration/results columns not found, using defaults')
+  }
 
   // Close any active polls
   await supabaseAdmin
