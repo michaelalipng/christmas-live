@@ -40,6 +40,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false)
   const [eventDuration, setEventDuration] = useState<number>(30)
   const [eventResults, setEventResults] = useState<number>(8)
+  const [gameEndTime, setGameEndTime] = useState<string>('')
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
@@ -85,23 +86,45 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     try {
       const { data: eventData } = await supabase
         .from('events')
-        .select('auto_advance, duration_seconds, results_seconds')
+        .select('auto_advance, duration_seconds, results_seconds, game_ends_at')
         .eq('id', eventId)
         .single()
       if (eventData) {
         setAutoAdvanceEnabled(eventData.auto_advance ?? false)
         setEventDuration(eventData.duration_seconds ?? 30)
         setEventResults(eventData.results_seconds ?? 8)
+        // Convert UTC game_ends_at to CST time string (HH:MM format)
+        if (eventData.game_ends_at) {
+          const utcDate = new Date(eventData.game_ends_at)
+          // Convert UTC to CST (UTC-6)
+          const cstDate = new Date(utcDate.getTime() - (6 * 60 * 60 * 1000))
+          const hours = String(cstDate.getUTCHours()).padStart(2, '0')
+          const minutes = String(cstDate.getUTCMinutes()).padStart(2, '0')
+          setGameEndTime(`${hours}:${minutes}`)
+        } else {
+          setGameEndTime('')
+        }
       }
     } catch {
       // Columns don't exist yet, use defaults
       const { data: eventData } = await supabase
         .from('events')
-        .select('auto_advance')
+        .select('auto_advance, game_ends_at')
         .eq('id', eventId)
         .single()
       if (eventData) {
         setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+        // Convert UTC game_ends_at to CST time string (HH:MM format)
+        if (eventData.game_ends_at) {
+          const utcDate = new Date(eventData.game_ends_at)
+          // Convert UTC to CST (UTC-6)
+          const cstDate = new Date(utcDate.getTime() - (6 * 60 * 60 * 1000))
+          const hours = String(cstDate.getUTCHours()).padStart(2, '0')
+          const minutes = String(cstDate.getUTCMinutes()).padStart(2, '0')
+          setGameEndTime(`${hours}:${minutes}`)
+        } else {
+          setGameEndTime('')
+        }
       }
       setEventDuration(30)
       setEventResults(8)
@@ -293,7 +316,17 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
           msg = text || `HTTP ${res.status} ${res.statusText}`
         }
         console.error('Moderator API error', { path, status: res.status, msg, text })
-        setLastError(`${path}: ${msg}`)
+        // Try to parse error message from response
+        let errorMsg = msg
+        try {
+          const errorJson = JSON.parse(text)
+          if (errorJson.error) {
+            errorMsg = errorJson.error
+          }
+        } catch {
+          // Not JSON, use text as is
+        }
+        setLastError(`${path}: ${errorMsg}`)
         return null
       }
 
@@ -433,6 +466,98 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
               className="w-full border rounded px-3 py-2"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Game End Time (Central Standard Time)</label>
+          <div className="flex gap-2 items-center">
+            <select
+              value={gameEndTime ? gameEndTime.split(':')[0] || '12' : ''}
+              onChange={async (e) => {
+                const hours = e.target.value
+                const minutes = gameEndTime ? gameEndTime.split(':')[1] || '00' : '00'
+                const newTime = hours ? `${hours}:${minutes}` : ''
+                setGameEndTime(newTime)
+                if (eventId && newTime) {
+                  // Convert CST time to UTC ISO string
+                  const [h, m] = newTime.split(':').map(Number)
+                  const today = new Date()
+                  const cstDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))
+                  const utcDate = new Date(cstDate.getTime() + (6 * 60 * 60 * 1000))
+                  const gameEndsAtUTC = utcDate.toISOString()
+                  await call('/api/mod/event/update', {
+                    event_id: eventId,
+                    game_ends_at: gameEndsAtUTC,
+                  })
+                  await refreshPolls()
+                } else if (eventId && !newTime) {
+                  await call('/api/mod/event/update', {
+                    event_id: eventId,
+                    game_ends_at: null,
+                  })
+                  await refreshPolls()
+                }
+              }}
+              className="border rounded px-3 py-2 flex-1"
+            >
+              <option value="">-- Hour --</option>
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={String(i).padStart(2, '0')}>
+                  {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
+                </option>
+              ))}
+            </select>
+            <span className="text-gray-500">:</span>
+            <select
+              value={gameEndTime ? gameEndTime.split(':')[1] || '00' : ''}
+              onChange={async (e) => {
+                const minutes = e.target.value
+                const hours = gameEndTime ? gameEndTime.split(':')[0] || '' : ''
+                if (!hours) return
+                const newTime = `${hours}:${minutes}`
+                setGameEndTime(newTime)
+                if (eventId) {
+                  // Convert CST time to UTC ISO string
+                  const [h, m] = newTime.split(':').map(Number)
+                  const today = new Date()
+                  const cstDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))
+                  const utcDate = new Date(cstDate.getTime() + (6 * 60 * 60 * 1000))
+                  const gameEndsAtUTC = utcDate.toISOString()
+                  await call('/api/mod/event/update', {
+                    event_id: eventId,
+                    game_ends_at: gameEndsAtUTC,
+                  })
+                  await refreshPolls()
+                }
+              }}
+              className="border rounded px-3 py-2 flex-1"
+              disabled={!gameEndTime || !gameEndTime.split(':')[0]}
+            >
+              <option value="">-- Min --</option>
+              {Array.from({ length: 60 }, (_, i) => (
+                <option key={i} value={String(i).padStart(2, '0')}>
+                  {String(i).padStart(2, '0')}
+                </option>
+              ))}
+            </select>
+            {gameEndTime && (
+              <button
+                onClick={async () => {
+                  setGameEndTime('')
+                  if (eventId) {
+                    await call('/api/mod/event/update', {
+                      event_id: eventId,
+                      game_ends_at: null,
+                    })
+                    await refreshPolls()
+                  }
+                }}
+                className="px-3 py-2 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Set when the game should automatically end (CST)</p>
         </div>
       </div>
 

@@ -212,26 +212,106 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     }
     if (state.status === 'idle') {
       return (
-        <div className="flex flex-col items-center space-y-6 w-full px-4">
-          <h1 className="text-3xl md:text-4xl font-bold text-center" style={{ color: '#D8A869', fontFamily: 'Forum, serif' }}>
+        <div className="flex flex-col items-center space-y-10 w-full px-4 relative">
+          <h1 
+            className="text-3xl md:text-4xl font-bold text-center relative z-10"
+            style={{ 
+              color: '#D8A869', 
+              fontFamily: 'Forum, serif',
+              letterSpacing: '0.02em',
+              animation: 'fadeInUp 1s ease-out',
+              textShadow: '0 2px 8px rgba(216, 168, 105, 0.2)',
+            }}
+          >
             Welcome to
           </h1>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 w-full max-w-5xl">
-            <div className="flex-shrink-0 order-2 md:order-1">
+          
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl relative z-10">
+            <div 
+              className="flex-shrink-0 order-2 md:order-1"
+              style={{ 
+                animation: 'fadeInUp 1.2s ease-out 0.2s both',
+              }}
+            >
               <img 
                 src="/Manger-Scene-Pic.png" 
                 alt="Manger Scene" 
-                className="max-w-[200px] md:max-w-xs h-auto"
-                style={{ maxHeight: '300px' }}
+                className="max-w-[200px] md:max-w-xs h-auto transition-all duration-300"
+                style={{ 
+                  maxHeight: '300px',
+                  animation: 'floatUp 4s ease-in-out infinite, subtleGlow 3s ease-in-out infinite',
+                }}
               />
             </div>
-            <div className="flex-shrink-0 order-1 md:order-2">
+            <div 
+              className="flex-shrink-0 order-1 md:order-2"
+              style={{ 
+                animation: 'fadeInUp 1.2s ease-out 0.4s both',
+              }}
+            >
               <img 
                 src="/Christmas-Header.png" 
                 alt="Christmas Header" 
-                className="max-w-[280px] md:max-w-md h-auto"
+                className="max-w-[280px] md:max-w-md h-auto transition-all duration-300"
+                style={{
+                  animation: 'floatUp 4s ease-in-out infinite 0.6s, subtleGlow 3s ease-in-out infinite 0.3s',
+                }}
               />
             </div>
+            {/* Game Starting Soon Animation - in line with images */}
+            <div 
+              className="flex-shrink-0 order-3 px-8 py-4 rounded-2xl backdrop-blur-md text-center"
+              style={{
+                border: '1px solid rgba(216, 168, 105, 0.3)',
+                backgroundColor: 'rgba(242, 247, 247, 0.7)',
+                boxShadow: '0 12px 40px -12px rgba(216, 168, 105, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                animation: 'gentlePulse 4s ease-in-out infinite, fadeInUp 1.4s ease-out 0.6s both',
+                position: 'relative',
+                overflow: 'hidden',
+                maxWidth: '280px',
+              }}
+            >
+            {/* Shimmer effect */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(216, 168, 105, 0.25) 50%, transparent 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 4s ease-in-out infinite',
+              }}
+            />
+            
+            {/* Subtle inner glow */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '80%',
+                height: '80%',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(216, 168, 105, 0.1) 0%, transparent 70%)',
+                animation: 'breathe 5s ease-in-out infinite',
+              }}
+            />
+            
+            <p 
+              className="text-lg md:text-xl font-semibold relative z-10"
+              style={{ 
+                color: '#385D75',
+                fontFamily: 'Forum, serif',
+                letterSpacing: '0.08em',
+                fontWeight: 500,
+              }}
+            >
+              Game Starting Soon...
+            </p>
+          </div>
           </div>
         </div>
       )
