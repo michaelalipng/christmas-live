@@ -299,19 +299,22 @@ export default function OverlayLive() {
                 }}
               />
             </div>
-            {/* Game Starting Soon Animation - in line with images */}
-            <div 
-              className="flex-shrink-0 order-3 px-8 py-4 rounded-2xl backdrop-blur-md text-center"
-              style={{
-                border: '1px solid rgba(216, 168, 105, 0.3)',
-                backgroundColor: 'rgba(242, 247, 247, 0.7)',
-                boxShadow: '0 12px 40px -12px rgba(216, 168, 105, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
-                animation: 'gentlePulse 4s ease-in-out infinite, fadeInUp 1.4s ease-out 0.6s both',
-                position: 'relative',
-                overflow: 'hidden',
-                maxWidth: '280px',
-              }}
-            >
+          </div>
+          
+          {/* Game Starting Soon Animation - centered below images */}
+          <div 
+            className="px-8 py-4 rounded-2xl backdrop-blur-md text-center"
+            style={{
+              border: '1px solid rgba(216, 168, 105, 0.3)',
+              backgroundColor: 'rgba(242, 247, 247, 0.7)',
+              boxShadow: '0 12px 40px -12px rgba(216, 168, 105, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+              animation: 'gentlePulse 4s ease-in-out infinite, fadeInUp 1.4s ease-out 0.6s both',
+              position: 'relative',
+              overflow: 'hidden',
+              maxWidth: '400px',
+              margin: '0 auto',
+            }}
+          >
             {/* Shimmer effect */}
             <div
               style={{
@@ -352,7 +355,6 @@ export default function OverlayLive() {
             >
               Game Starting Soon...
             </p>
-          </div>
           </div>
         </div>
       )
