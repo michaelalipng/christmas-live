@@ -88,11 +88,12 @@ async function processEvent(event_id: string): Promise<NextResponse> {
     // Get event's global duration and results settings (used for all polls)
     let durationSeconds = 30
     let resultsSeconds = 8
+    let gameEndsAt: string | null = null
     
     try {
       const { data: eventData, error: eventError } = await supabaseAdmin
         .from('events')
-        .select('duration_seconds, results_seconds')
+        .select('duration_seconds, results_seconds, game_ends_at, auto_advance')
         .eq('id', event_id)
         .single()
       
@@ -105,6 +106,33 @@ async function processEvent(event_id: string): Promise<NextResponse> {
       if (eventData) {
         durationSeconds = eventData.duration_seconds ?? 30
         resultsSeconds = eventData.results_seconds ?? 8
+        gameEndsAt = eventData.game_ends_at ?? null
+        
+        // Check if game end time has been reached
+        if (gameEndsAt && eventData.auto_advance) {
+          const gameEndTime = new Date(gameEndsAt).getTime()
+          const currentTime = now.getTime()
+          
+          if (currentTime >= gameEndTime) {
+            console.log(`[auto-advance] Game end time reached (${gameEndsAt}), stopping game`)
+            
+            // Disable auto-advance
+            await supabaseAdmin
+              .from('events')
+              .update({ auto_advance: false })
+              .eq('id', event_id)
+            
+            // Close all active and showing_results polls
+            await supabaseAdmin
+              .from('polls')
+              .update({ state: 'closed' })
+              .eq('event_id', event_id)
+              .in('state', ['active', 'showing_results'])
+            
+            console.log(`[auto-advance] Game stopped automatically at end time`)
+            return NextResponse.json({ ok: true, action: 'game_stopped_by_end_time' })
+          }
+        }
       }
     } catch {
       // Columns don't exist yet, use defaults

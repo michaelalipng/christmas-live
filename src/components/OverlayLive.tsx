@@ -367,11 +367,11 @@ export default function OverlayLive() {
       // If showing results and we have a correct answer, show the animated answer display
       if (isShowingResults && correctAnswer) {
         return (
-          <div className="space-y-8">
-            <div className="space-y-4 text-center animate-fadeIn">
-              <p className="text-sm uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>The Answer Is</p>
+          <div className="space-y-12 w-full">
+            <div className="space-y-6 text-center animate-fadeIn">
+              <p className="text-xl uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>The Answer Is</p>
               <div 
-                className="inline-block px-12 py-8 rounded-2xl backdrop-blur-md"
+                className="inline-block px-16 py-12 rounded-2xl backdrop-blur-md"
                 style={{
                   backgroundColor: 'rgba(34, 197, 94, 0.3)',
                   border: '3px solid rgba(34, 197, 94, 0.8)',
@@ -380,7 +380,7 @@ export default function OverlayLive() {
                 }}
               >
                 <h2 
-                  className="text-5xl font-bold leading-tight"
+                  className="text-7xl font-bold leading-tight"
                   style={{ 
                     color: '#22C55E',
                     fontFamily: 'Forum, serif',
@@ -391,7 +391,7 @@ export default function OverlayLive() {
                 </h2>
               </div>
               {nextQuestionAt && (
-                <div className="text-lg tabular-nums font-medium" style={{ color: '#385D75' }}>
+                <div className="text-2xl tabular-nums font-medium" style={{ color: '#385D75' }}>
                   Next question in: <span className="font-bold" style={{ color: '#D8A869' }}>{formatSeconds(Math.max(0, Date.parse(nextQuestionAt) - serverNowMs))}</span>
                 </div>
               )}
@@ -403,16 +403,18 @@ export default function OverlayLive() {
       
       // Normal display during voting
       return (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Current Question</p>
-            <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
+        <div className="space-y-10 w-full">
+          <div className="space-y-4">
+            <p className="text-lg uppercase tracking-wider opacity-80 font-medium text-center" style={{ color: '#385D75' }}>Current Question</p>
+            <h2 className="text-5xl md:text-6xl font-bold leading-tight text-center" style={{ color: '#D8A869', fontFamily: 'Forum, serif' }}>{state.poll.question}</h2>
           </div>
-          <Countdown
-            nowMs={serverNowMs}
-            endsAtIso={state.poll.ends_at}
-            totalDurationSec={state.poll.duration_seconds}
-          />
+          <div className="flex justify-center">
+            <Countdown
+              nowMs={serverNowMs}
+              endsAtIso={state.poll.ends_at}
+              totalDurationSec={state.poll.duration_seconds}
+            />
+          </div>
           <LiveTally pollId={state.poll.id} />
         </div>
       )
@@ -421,7 +423,7 @@ export default function OverlayLive() {
   }, [state, serverNowMs])
 
   return (
-    <section className={`w-full max-w-2xl mx-auto p-6 ${state.status === 'idle' ? 'flex flex-col items-center justify-center min-h-[calc(100vh-3rem)]' : ''}`}>
+    <section className={`w-full mx-auto p-6 ${state.status === 'idle' ? 'flex flex-col items-center justify-center min-h-[calc(100vh-3rem)] max-w-2xl' : state.status === 'active' ? 'flex flex-col items-center justify-center min-h-screen max-w-5xl' : 'max-w-2xl'}`}>
       {content}
       {eventId ? <BannerTray eventId={eventId} /> : null}
     </section>
