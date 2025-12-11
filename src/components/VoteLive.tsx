@@ -213,18 +213,8 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     if (state.status === 'idle') {
       return (
         <div className="flex flex-col items-center space-y-10 w-full px-4 relative">
-          <h1 
-            className="text-3xl md:text-4xl font-bold text-center relative z-10"
-            style={{ 
-              color: '#D8A869', 
-              fontFamily: 'Forum, serif',
-              letterSpacing: '0.02em',
-              animation: 'fadeInUp 1s ease-out',
-              textShadow: '0 2px 8px rgba(216, 168, 105, 0.2)',
-            }}
-          >
-            Welcome to
-          </h1>
+          {/* Spacer to maintain padding */}
+          <div className="h-0" />
           
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl relative z-10">
             <div 
