@@ -312,7 +312,7 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
       const nextQuestionAt = state.poll.results_until
       
       return (
-        <div className="space-y-6 pt-[10vh]">
+        <div className="space-y-6 pt-[7vh]">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>Current Question</p>
             <h2 className="text-3xl font-bold leading-tight" style={{ color: '#D8A869', fontFamily: 'Forum, serif', fontSize: '1.6em' }}>{state.poll.question}</h2>
@@ -345,7 +345,7 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
   }, [state, serverNowMs])
 
   return (
-    <section className="w-full max-w-2xl mx-auto p-6 pb-4">
+    <section className={`w-full max-w-2xl mx-auto p-6 pb-4 ${state.status === 'active' ? 'overflow-hidden' : ''}`}>
       {content}
       
       {/* Action buttons - always visible at bottom of content */}
