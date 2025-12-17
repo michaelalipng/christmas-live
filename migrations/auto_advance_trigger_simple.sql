@@ -100,3 +100,5 @@ CREATE TRIGGER trigger_auto_advance_next_poll
 -- Test the trigger (optional - you can run this to verify)
 -- SELECT 'Trigger created successfully!' AS status;
 
+
+

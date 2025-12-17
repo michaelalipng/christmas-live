@@ -313,3 +313,5 @@ options AS (
 UPDATE polls SET correct_option_id = (SELECT id FROM options WHERE poll_id = (SELECT id FROM new_poll) AND label = 'Australia')
 WHERE id = (SELECT id FROM new_poll);
 
+
+

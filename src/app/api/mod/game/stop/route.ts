@@ -9,10 +9,10 @@ export async function POST(req: NextRequest) {
   const { event_id } = await req.json()
   if (!event_id) return NextResponse.json({ error: 'event_id required' }, { status: 400 })
 
-  // Disable auto-advance
+  // Disable auto-advance and mark game as ended
   await supabaseAdmin
     .from('events')
-    .update({ auto_advance: false })
+    .update({ auto_advance: false, game_ended: true })
     .eq('id', event_id)
 
   // Close all active and showing_results polls
@@ -24,4 +24,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true })
 }
+
+
 

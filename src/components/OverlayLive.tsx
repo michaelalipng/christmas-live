@@ -253,21 +253,8 @@ export default function OverlayLive() {
     }
     if (state.status === 'idle') {
       return (
-        <div className="flex flex-col items-center space-y-10 w-full px-4 relative">
-          <h1 
-            className="text-3xl md:text-4xl font-bold text-center relative z-10"
-            style={{ 
-              color: '#D8A869', 
-              fontFamily: 'Forum, serif',
-              letterSpacing: '0.02em',
-              animation: 'fadeInUp 1s ease-out',
-              textShadow: '0 2px 8px rgba(216, 168, 105, 0.2)',
-            }}
-          >
-            Welcome to
-          </h1>
-          
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl relative z-10">
+        <div className="flex flex-col items-center space-y-6 w-full px-6 relative">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 w-full relative z-10 px-2">
             <div 
               className="flex-shrink-0 order-2 md:order-1"
               style={{ 
@@ -300,62 +287,6 @@ export default function OverlayLive() {
               />
             </div>
           </div>
-          
-          {/* Game Starting Soon Animation - centered below images */}
-          <div 
-            className="px-8 py-4 rounded-2xl backdrop-blur-md text-center"
-            style={{
-              border: '1px solid rgba(216, 168, 105, 0.3)',
-              backgroundColor: 'rgba(242, 247, 247, 0.7)',
-              boxShadow: '0 12px 40px -12px rgba(216, 168, 105, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
-              animation: 'gentlePulse 4s ease-in-out infinite, fadeInUp 1.4s ease-out 0.6s both',
-              position: 'relative',
-              overflow: 'hidden',
-              maxWidth: '400px',
-              margin: '0 auto',
-            }}
-          >
-            {/* Shimmer effect */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                background: 'linear-gradient(90deg, transparent 0%, rgba(216, 168, 105, 0.25) 50%, transparent 100%)',
-                backgroundSize: '200% 100%',
-                animation: 'shimmer 4s ease-in-out infinite',
-              }}
-            />
-            
-            {/* Subtle inner glow */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '80%',
-                height: '80%',
-                borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(216, 168, 105, 0.1) 0%, transparent 70%)',
-                animation: 'breathe 5s ease-in-out infinite',
-              }}
-            />
-            
-            <p 
-              className="text-lg md:text-xl font-semibold relative z-10"
-              style={{ 
-                color: '#385D75',
-                fontFamily: 'Forum, serif',
-                letterSpacing: '0.08em',
-                fontWeight: 500,
-              }}
-            >
-              Game Starting Soon...
-            </p>
-          </div>
         </div>
       )
     }
@@ -367,55 +298,64 @@ export default function OverlayLive() {
       // If showing results and we have a correct answer, show the animated answer display
       if (isShowingResults && correctAnswer) {
         return (
-          <div className="space-y-12 w-full">
-            <div className="space-y-6 text-center animate-fadeIn">
+          <div className="space-y-8 w-full px-6">
+            <div className="space-y-4 text-center animate-fadeIn px-2">
               <p className="text-xl uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>The Answer Is</p>
-              <div 
-                className="inline-block px-16 py-12 rounded-2xl backdrop-blur-md"
-                style={{
-                  backgroundColor: 'rgba(34, 197, 94, 0.3)',
-                  border: '3px solid rgba(34, 197, 94, 0.8)',
-                  boxShadow: '0 20px 60px -12px rgba(34, 197, 94, 0.5), 0 0 0 1px rgba(34, 197, 94, 0.2)',
-                  animation: 'correctAnswerPulse 2s ease-in-out infinite, fadeInScale 0.8s ease-out',
-                }}
-              >
-                <h2 
-                  className="text-7xl font-bold leading-tight"
-                  style={{ 
-                    color: '#22C55E',
-                    fontFamily: 'Forum, serif',
-                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              <div className="flex justify-center w-full px-2">
+                <div 
+                  className="inline-block px-6 py-5 rounded-2xl backdrop-blur-md max-w-full"
+                  style={{
+                    backgroundColor: 'rgba(34, 197, 94, 0.3)',
+                    border: '3px solid rgba(34, 197, 94, 0.8)',
+                    boxShadow: '0 20px 60px -12px rgba(34, 197, 94, 0.5), 0 0 0 1px rgba(34, 197, 94, 0.2)',
+                    animation: 'correctAnswerPulse 2s ease-in-out infinite, fadeInScale 0.8s ease-out',
+                    overflow: 'visible',
                   }}
                 >
-                  {correctAnswer.label}
-                </h2>
+                  <h2 
+                    className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight break-words px-2"
+                    style={{ 
+                      color: '#22C55E',
+                      fontFamily: 'Forum, serif',
+                      textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                    }}
+                  >
+                    {correctAnswer.label}
+                  </h2>
+                </div>
               </div>
               {nextQuestionAt && (
-                <div className="text-2xl tabular-nums font-medium" style={{ color: '#385D75' }}>
+                <div className="text-2xl tabular-nums font-medium px-2" style={{ color: '#385D75' }}>
                   Next question in: <span className="font-bold" style={{ color: '#D8A869' }}>{formatSeconds(Math.max(0, Date.parse(nextQuestionAt) - serverNowMs))}</span>
                 </div>
               )}
             </div>
-            <LiveTally pollId={state.poll.id} />
+            <div className="px-4">
+              <LiveTally pollId={state.poll.id} />
+            </div>
           </div>
         )
       }
       
       // Normal display during voting
       return (
-        <div className="space-y-10 w-full">
-          <div className="space-y-4">
+        <div className="space-y-6 w-full px-4" style={{ marginTop: '-8vh' }}>
+          <div className="space-y-3">
             <p className="text-lg uppercase tracking-wider opacity-80 font-medium text-center" style={{ color: '#385D75' }}>Current Question</p>
-            <h2 className="text-5xl md:text-6xl font-bold leading-tight text-center" style={{ color: '#D8A869', fontFamily: 'Forum, serif' }}>{state.poll.question}</h2>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-center break-words" style={{ color: '#D8A869', fontFamily: 'Forum, serif', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{state.poll.question}</h2>
           </div>
-          <div className="flex justify-center">
+          <div className="flex justify-center px-2">
             <Countdown
               nowMs={serverNowMs}
               endsAtIso={state.poll.ends_at}
               totalDurationSec={state.poll.duration_seconds}
             />
           </div>
-          <LiveTally pollId={state.poll.id} />
+          <div className="px-2">
+            <LiveTally pollId={state.poll.id} />
+          </div>
         </div>
       )
     }
@@ -423,9 +363,59 @@ export default function OverlayLive() {
   }, [state, serverNowMs])
 
   return (
-    <section className={`w-full mx-auto p-6 ${state.status === 'idle' ? 'flex flex-col items-center justify-center min-h-[calc(100vh-3rem)] max-w-2xl' : state.status === 'active' ? 'flex flex-col items-center justify-center min-h-screen max-w-5xl' : 'max-w-2xl'}`}>
-      {content}
-      {eventId ? <BannerTray eventId={eventId} /> : null}
-    </section>
+    <div className="w-full h-screen flex flex-col relative overflow-hidden">
+      {/* Main Content Area - Top portion */}
+      <section className={`flex-1 flex flex-col items-center overflow-visible min-h-0 relative z-10 ${state.status === 'idle' ? 'max-w-6xl mx-auto w-full justify-center p-6 pb-8 pt-16' : state.status === 'active' ? 'max-w-5xl mx-auto justify-start p-6 pb-8 pt-[18vh]' : 'max-w-2xl mx-auto justify-center p-6 pb-8 pt-16'}`}>
+        <div className={`w-full flex flex-col items-center overflow-visible px-2 ${state.status === 'active' ? 'h-auto' : 'h-full justify-center'}`}>
+          {content}
+        </div>
+        {eventId ? <BannerTray eventId={eventId} /> : null}
+      </section>
+      
+      {/* QR Code Section - Footer */}
+      <footer 
+        className="flex items-end justify-center gap-8 px-8 backdrop-blur-md w-full flex-shrink-0"
+        style={{
+          borderTop: '1px solid rgba(56, 93, 117, 0.3)',
+          backgroundColor: 'rgba(242, 247, 247, 0.8)',
+          boxShadow: '0 -8px 32px 0 rgba(31, 38, 135, 0.2)',
+          paddingTop: '0.5rem',
+          paddingBottom: '0.75rem',
+          height: '6.25vh',
+          minHeight: '6.25vh',
+        }}
+      >
+        <div className="flex items-end justify-between gap-8 w-full max-w-7xl relative px-4 pb-1">
+          <h2 
+            className="font-bold flex-1"
+            style={{ 
+              color: '#385D75', 
+              fontFamily: 'Forum, serif',
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              fontSize: 'clamp(2.5rem, 7vw, 7rem)',
+              lineHeight: '1.1',
+              whiteSpace: 'nowrap',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Scan to Join the game!
+          </h2>
+          <div className="flex-shrink-0 relative">
+            <img 
+              src="/Christmas Trivia QR Code.jpg" 
+              alt="QR Code to join the game" 
+              className="h-36 md:h-44 w-auto rounded-lg shadow-xl"
+              style={{
+                border: '2px solid rgba(56, 93, 117, 0.2)',
+                transform: 'translateY(-10px)',
+                maxWidth: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </div>
+        </div>
+      </footer>
+    </div>
   )
 }

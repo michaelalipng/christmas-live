@@ -12,6 +12,7 @@ const BannerTray = dynamic(() => import('@/components/BannerTray'), { ssr: false
 type LiveState =
   | { status: 'loading' }
   | { status: 'idle' } // no active poll yet
+  | { status: 'game_ended' } // game has ended
   | { status: 'active'; poll: Poll }
   | { status: 'results'; poll: Poll }
 
@@ -44,15 +45,20 @@ async function getLatestEventId(campus_id: UUID): Promise<UUID | null> {
 }
 
 async function fetchActiveOrRecentPoll(event_id: UUID): Promise<LiveState> {
-  // First check if the game is active (auto_advance enabled)
+  // First check if the game is active (auto_advance enabled) and if game has ended
   const { data: eventData, error: eventError } = await supabase
     .from('events')
-    .select('auto_advance')
+    .select('auto_advance, game_ended')
     .eq('id', event_id)
     .single()
   
   if (eventError) {
     console.warn('Error checking event auto_advance:', eventError)
+  }
+  
+  // If game has ended, return special status
+  if (eventData?.game_ended) {
+    return { status: 'game_ended' as any }
   }
   
   // Only show polls if the game is active
@@ -209,6 +215,102 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
   const content = useMemo(() => {
     if (state.status === 'loading') {
       return <p className="opacity-70" style={{ color: '#385D75' }}>Loading current question…</p>
+    }
+    if (state.status === 'game_ended') {
+      return (
+        <div className="flex flex-col items-center space-y-10 w-full px-4 relative">
+          {/* Spacer to maintain padding */}
+          <div className="h-0" />
+          
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full max-w-5xl relative z-10">
+            <div 
+              className="flex-shrink-0 order-2 md:order-1"
+              style={{ 
+                animation: 'fadeInUp 1.2s ease-out 0.2s both',
+              }}
+            >
+              <img 
+                src="/Manger-Scene-Pic.png" 
+                alt="Manger Scene" 
+                className="max-w-[200px] md:max-w-xs h-auto transition-all duration-300"
+                style={{ 
+                  maxHeight: '300px',
+                  animation: 'floatUp 4s ease-in-out infinite, subtleGlow 3s ease-in-out infinite',
+                }}
+              />
+            </div>
+            <div 
+              className="flex-shrink-0 order-1 md:order-2"
+              style={{ 
+                animation: 'fadeInUp 1.2s ease-out 0.4s both',
+              }}
+            >
+              <img 
+                src="/Christmas-Header.png" 
+                alt="Christmas Header" 
+                className="max-w-[280px] md:max-w-md h-auto transition-all duration-300"
+                style={{
+                  animation: 'floatUp 4s ease-in-out infinite 0.6s, subtleGlow 3s ease-in-out infinite 0.3s',
+                }}
+              />
+            </div>
+            {/* Thanks for playing message - in line with images */}
+            <div 
+              className="flex-shrink-0 order-3 px-8 py-4 rounded-2xl backdrop-blur-md text-center"
+              style={{
+                border: '1px solid rgba(216, 168, 105, 0.3)',
+                backgroundColor: 'rgba(242, 247, 247, 0.7)',
+                boxShadow: '0 12px 40px -12px rgba(216, 168, 105, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                animation: 'gentlePulse 4s ease-in-out infinite, fadeInUp 1.4s ease-out 0.6s both',
+                position: 'relative',
+                overflow: 'hidden',
+                maxWidth: '280px',
+              }}
+            >
+            {/* Shimmer effect */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(216, 168, 105, 0.25) 50%, transparent 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 4s ease-in-out infinite',
+              }}
+            />
+            
+            {/* Subtle inner glow */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '80%',
+                height: '80%',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(216, 168, 105, 0.1) 0%, transparent 70%)',
+                animation: 'breathe 5s ease-in-out infinite',
+              }}
+            />
+            
+            <p 
+              className="text-lg md:text-xl font-semibold relative z-10"
+              style={{ 
+                color: '#385D75',
+                fontFamily: 'Forum, serif',
+                letterSpacing: '0.08em',
+                fontWeight: 500,
+              }}
+            >
+              Thanks for playing! Enjoy the service.
+            </p>
+          </div>
+          </div>
+        </div>
+      )
     }
     if (state.status === 'idle') {
       return (

@@ -12,3 +12,5 @@ SET
   results_seconds = COALESCE(results_seconds, 8)
 WHERE duration_seconds IS NULL OR results_seconds IS NULL;
 
+
+

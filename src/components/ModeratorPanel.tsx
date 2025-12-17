@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
+import { useServerTime } from '@/lib/useServerTime'
 import type { Poll, PollOption, UUID } from '@/types/db'
 
 type IdRow = { id: UUID }
@@ -41,6 +43,25 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [eventDuration, setEventDuration] = useState<number>(30)
   const [eventResults, setEventResults] = useState<number>(8)
   const [gameEndTime, setGameEndTime] = useState<string>('')
+  const [gameEnded, setGameEnded] = useState<boolean>(false)
+  const [showBannerModal, setShowBannerModal] = useState(false)
+  
+  // Clock display
+  const serverTimeMs = useServerTime(1000, 15000)
+  const [currentTime, setCurrentTime] = useState<string>('')
+  
+  useEffect(() => {
+    const updateTime = () => {
+      const date = new Date(serverTimeMs)
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      setCurrentTime(`${hours}:${minutes}:${seconds}`)
+    }
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [serverTimeMs])
 
   const refreshPolls = useCallback(async () => {
     if (!eventId) return
@@ -86,13 +107,14 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
     try {
       const { data: eventData } = await supabase
         .from('events')
-        .select('auto_advance, duration_seconds, results_seconds, game_ends_at')
+        .select('auto_advance, duration_seconds, results_seconds, game_ends_at, game_ended')
         .eq('id', eventId)
         .single()
       if (eventData) {
         setAutoAdvanceEnabled(eventData.auto_advance ?? false)
         setEventDuration(eventData.duration_seconds ?? 30)
         setEventResults(eventData.results_seconds ?? 8)
+        setGameEnded(eventData.game_ended ?? false)
         // Convert UTC game_ends_at to CST time string (HH:MM format)
         if (eventData.game_ends_at) {
           const utcDate = new Date(eventData.game_ends_at)
@@ -109,11 +131,12 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       // Columns don't exist yet, use defaults
       const { data: eventData } = await supabase
         .from('events')
-        .select('auto_advance, game_ends_at')
+        .select('auto_advance, game_ends_at, game_ended')
         .eq('id', eventId)
         .single()
       if (eventData) {
         setAutoAdvanceEnabled(eventData.auto_advance ?? false)
+        setGameEnded(eventData.game_ended ?? false)
         // Convert UTC game_ends_at to CST time string (HH:MM format)
         if (eventData.game_ends_at) {
           const utcDate = new Date(eventData.game_ends_at)
@@ -227,7 +250,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         table: 'events',
         filter: `id=eq.${eventId}`,
       }, (payload) => {
-        const newData = payload.new as { auto_advance?: boolean; duration_seconds?: number; results_seconds?: number }
+        const newData = payload.new as { auto_advance?: boolean; duration_seconds?: number; results_seconds?: number; game_ended?: boolean }
         if (newData.auto_advance !== undefined) {
           setAutoAdvanceEnabled(newData.auto_advance)
         }
@@ -236,6 +259,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         }
         if (newData.results_seconds !== undefined) {
           setEventResults(newData.results_seconds)
+        }
+        if (newData.game_ended !== undefined) {
+          setGameEnded(newData.game_ended)
         }
       })
       .subscribe()
@@ -376,7 +402,34 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold">Moderator — {campusSlug}</h2>
+      {/* Header with Home Button and Clock */}
+      <div className="flex justify-between items-center mb-4">
+        <Link
+          href="/"
+          className="px-4 py-2 rounded-lg border-2 font-semibold transition-colors"
+          style={{
+            borderColor: 'rgba(56, 93, 117, 0.3)',
+            backgroundColor: 'rgba(242, 247, 247, 0.9)',
+            color: '#385D75',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
+            e.currentTarget.style.color = 'white'
+            e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.9)'
+            e.currentTarget.style.color = '#385D75'
+            e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.3)'
+          }}
+        >
+          ← Home
+        </Link>
+        <div className="text-2xl font-mono font-bold" style={{ color: '#385D75' }}>
+          {currentTime}
+        </div>
+      </div>
+
       {lastError && (
         <div className="mb-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
           Moderator error: {lastError}
@@ -387,163 +440,147 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
           ⚠️ Warning: NEXT_PUBLIC_ADMIN_TOKEN is not set. API calls will fail. Please set this environment variable.
         </div>
       )}
-      <div className="grid gap-2">
-        <div className="text-sm opacity-70">Event: {eventId}</div>
-        <div className="text-sm">
-          Status: {active ? `Active - ${active.question}` : autoAdvanceEnabled ? (polls.length === 0 ? 'No polls to start' : 'Waiting to start...') : 'Stopped'}
-        </div>
-        {polls.length === 0 && (
-          <div className="text-sm text-yellow-600">⚠️ No polls found. Create at least one poll before starting the game.</div>
-        )}
-      </div>
+      {polls.length === 0 && (
+        <div className="text-sm text-yellow-600">⚠️ No polls found. Create at least one poll before starting the game.</div>
+      )}
 
-      {/* Banner Section */}
-      <div className="border rounded-xl p-4 space-y-3 bg-white">
-        <h3 className="font-semibold">Banner</h3>
-        <div className="grid gap-2 md:grid-cols-2">
-          <input value={bTitle} onChange={e=>setBTitle(e.target.value)} placeholder="Title" className="border rounded px-2 py-1" />
-          <input value={bBody} onChange={e=>setBBody(e.target.value)} placeholder="Body (optional)" className="border rounded px-2 py-1" />
-          <select value={bType} onChange={e=>setBType(e.target.value as 'link'|'share'|'sms'|'none')} className="border rounded px-2 py-1">
-            <option value="link">Link</option>
-            <option value="share">Share</option>
-            <option value="sms">SMS</option>
-            <option value="none">No CTA</option>
-          </select>
-          <input value={bLabel} onChange={e=>setBLabel(e.target.value)} placeholder="CTA label (e.g., Open)" className="border rounded px-2 py-1" />
-          {bType === 'sms' ? (
-            <>
-              <input value={bSmsMessage} onChange={e=>setBSmsMessage(e.target.value)} placeholder="SMS message body" className="border rounded px-2 py-1 md:col-span-2" />
-              <input value={bSmsUrl} onChange={e=>setBSmsUrl(e.target.value)} placeholder="URL to append (optional)" className="border rounded px-2 py-1 md:col-span-2" />
-            </>
-          ) : (
-            <input value={bPayload} onChange={e=>setBPayload(e.target.value)} placeholder="CTA payload (URL / text)" className="border rounded px-2 py-1 md:col-span-2" />
-          )}
-          <input type="number" value={bDuration} onChange={e=>setBDuration(Number(e.target.value))} placeholder="Duration seconds" className="border rounded px-2 py-1" />
-        </div>
-        <div className="flex gap-2">
-          <button onClick={pushBanner} className="px-3 py-2 rounded border hover:bg-gray-50">Push Banner</button>
-          <button onClick={clearBanner} className="px-3 py-2 rounded border hover:bg-gray-50">Clear</button>
-        </div>
-      </div>
+      {/* Banner Modal Button */}
+      <button
+        onClick={() => setShowBannerModal(true)}
+        className="px-4 py-2 rounded-lg border-2 font-semibold transition-colors"
+        style={{
+          borderColor: 'rgba(56, 93, 117, 0.3)',
+          backgroundColor: 'rgba(242, 247, 247, 0.9)',
+          color: '#385D75',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
+          e.currentTarget.style.color = 'white'
+          e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.9)'
+          e.currentTarget.style.color = '#385D75'
+          e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.3)'
+        }}
+      >
+        Banner Builder
+      </button>
 
-      {/* Global Settings */}
-      <div className="border rounded-xl p-4 space-y-3 bg-white">
-        <h3 className="font-semibold">Global Settings</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Question Duration (seconds)</label>
-            <input
-              type="number"
-              value={eventDuration}
-              onChange={e => setEventDuration(Number(e.target.value))}
-              onBlur={async () => {
-                if (eventId) {
-                  await call('/api/mod/event/update', {
-                    event_id: eventId,
-                    duration_seconds: eventDuration,
-                  })
-                  await refreshPolls()
-                }
-              }}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Results Duration (seconds)</label>
-            <input
-              type="number"
-              value={eventResults}
-              onChange={e => setEventResults(Number(e.target.value))}
-              onBlur={async () => {
-                if (eventId) {
-                  await call('/api/mod/event/update', {
-                    event_id: eventId,
-                    results_seconds: eventResults,
-                  })
-                  await refreshPolls()
-                }
-              }}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Game End Time (Central Standard Time)</label>
-          <div className="flex gap-2 items-center">
-            <select
-              value={gameEndTime ? gameEndTime.split(':')[0] || '12' : ''}
-              onChange={async (e) => {
-                const hours = e.target.value
-                const minutes = gameEndTime ? gameEndTime.split(':')[1] || '00' : '00'
-                const newTime = hours ? `${hours}:${minutes}` : ''
-                setGameEndTime(newTime)
-                if (eventId && newTime) {
-                  // Convert CST time to UTC ISO string
-                  const [h, m] = newTime.split(':').map(Number)
-                  const today = new Date()
-                  const cstDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))
-                  const utcDate = new Date(cstDate.getTime() + (6 * 60 * 60 * 1000))
-                  const gameEndsAtUTC = utcDate.toISOString()
-                  await call('/api/mod/event/update', {
-                    event_id: eventId,
-                    game_ends_at: gameEndsAtUTC,
-                  })
-                  await refreshPolls()
-                } else if (eventId && !newTime) {
-                  await call('/api/mod/event/update', {
-                    event_id: eventId,
-                    game_ends_at: null,
-                  })
-                  await refreshPolls()
-                }
-              }}
-              className="border rounded px-3 py-2 flex-1"
-            >
-              <option value="">-- Hour --</option>
-              {Array.from({ length: 24 }, (_, i) => (
-                <option key={i} value={String(i).padStart(2, '0')}>
-                  {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
-                </option>
-              ))}
-            </select>
-            <span className="text-gray-500">:</span>
-            <select
-              value={gameEndTime ? gameEndTime.split(':')[1] || '00' : ''}
-              onChange={async (e) => {
-                const minutes = e.target.value
-                const hours = gameEndTime ? gameEndTime.split(':')[0] || '' : ''
-                if (!hours) return
-                const newTime = `${hours}:${minutes}`
-                setGameEndTime(newTime)
-                if (eventId) {
-                  // Convert CST time to UTC ISO string
-                  const [h, m] = newTime.split(':').map(Number)
-                  const today = new Date()
-                  const cstDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))
-                  const utcDate = new Date(cstDate.getTime() + (6 * 60 * 60 * 1000))
-                  const gameEndsAtUTC = utcDate.toISOString()
-                  await call('/api/mod/event/update', {
-                    event_id: eventId,
-                    game_ends_at: gameEndsAtUTC,
-                  })
-                  await refreshPolls()
-                }
-              }}
-              className="border rounded px-3 py-2 flex-1"
-              disabled={!gameEndTime || !gameEndTime.split(':')[0]}
-            >
-              <option value="">-- Min --</option>
-              {Array.from({ length: 60 }, (_, i) => (
-                <option key={i} value={String(i).padStart(2, '0')}>
-                  {String(i).padStart(2, '0')}
-                </option>
-              ))}
-            </select>
-            {gameEndTime && (
+      {/* Banner Modal */}
+      {showBannerModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={() => setShowBannerModal(false)}
+        >
+          <div 
+            className="border rounded-xl p-6 space-y-3 bg-white max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-xl">Banner Settings</h3>
               <button
-                onClick={async () => {
-                  setGameEndTime('')
+                onClick={() => setShowBannerModal(false)}
+                className="text-2xl font-bold text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <input value={bTitle} onChange={e=>setBTitle(e.target.value)} placeholder="Title" className="border rounded px-2 py-1" />
+              <input value={bBody} onChange={e=>setBBody(e.target.value)} placeholder="Body (optional)" className="border rounded px-2 py-1" />
+              <select value={bType} onChange={e=>setBType(e.target.value as 'link'|'share'|'sms'|'none')} className="border rounded px-2 py-1">
+                <option value="link">Link</option>
+                <option value="share">Share</option>
+                <option value="sms">SMS</option>
+                <option value="none">No CTA</option>
+              </select>
+              <input value={bLabel} onChange={e=>setBLabel(e.target.value)} placeholder="CTA label (e.g., Open)" className="border rounded px-2 py-1" />
+              {bType === 'sms' ? (
+                <>
+                  <input value={bSmsMessage} onChange={e=>setBSmsMessage(e.target.value)} placeholder="SMS message body" className="border rounded px-2 py-1 md:col-span-2" />
+                  <input value={bSmsUrl} onChange={e=>setBSmsUrl(e.target.value)} placeholder="URL to append (optional)" className="border rounded px-2 py-1 md:col-span-2" />
+                </>
+              ) : (
+                <input value={bPayload} onChange={e=>setBPayload(e.target.value)} placeholder="CTA payload (URL / text)" className="border rounded px-2 py-1 md:col-span-2" />
+              )}
+              <input type="number" value={bDuration} onChange={e=>setBDuration(Number(e.target.value))} placeholder="Duration seconds" className="border rounded px-2 py-1" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={async () => { await pushBanner(); setShowBannerModal(false); }} className="px-3 py-2 rounded border hover:bg-gray-50">Push Banner</button>
+              <button onClick={async () => { await clearBanner(); setShowBannerModal(false); }} className="px-3 py-2 rounded border hover:bg-gray-50">Clear</button>
+              <button onClick={() => setShowBannerModal(false)} className="px-3 py-2 rounded border hover:bg-gray-50 ml-auto">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Settings and Start/Stop Game Controls - Side by Side */}
+      <div className="flex gap-4 items-start">
+        {/* Global Settings - Half Width, Left Side */}
+        <div className="border rounded-xl p-4 space-y-3 bg-white flex-1 max-w-[50%]">
+          <h3 className="font-semibold">Global Settings</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Question Duration (seconds)</label>
+              <input
+                type="number"
+                value={eventDuration}
+                onChange={e => setEventDuration(Number(e.target.value))}
+                onBlur={async () => {
                   if (eventId) {
+                    await call('/api/mod/event/update', {
+                      event_id: eventId,
+                      duration_seconds: eventDuration,
+                    })
+                    await refreshPolls()
+                  }
+                }}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Results Duration (seconds)</label>
+              <input
+                type="number"
+                value={eventResults}
+                onChange={e => setEventResults(Number(e.target.value))}
+                onBlur={async () => {
+                  if (eventId) {
+                    await call('/api/mod/event/update', {
+                      event_id: eventId,
+                      results_seconds: eventResults,
+                    })
+                    await refreshPolls()
+                  }
+                }}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Game End Time (Central Standard Time)</label>
+            <div className="flex gap-2 items-center">
+              <select
+                value={gameEndTime ? gameEndTime.split(':')[0] || '12' : ''}
+                onChange={async (e) => {
+                  const hours = e.target.value
+                  const minutes = gameEndTime ? gameEndTime.split(':')[1] || '00' : '00'
+                  const newTime = hours ? `${hours}:${minutes}` : ''
+                  setGameEndTime(newTime)
+                  if (eventId && newTime) {
+                    // Convert CST time to UTC ISO string
+                    const [h, m] = newTime.split(':').map(Number)
+                    const today = new Date()
+                    const cstDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))
+                    const utcDate = new Date(cstDate.getTime() + (6 * 60 * 60 * 1000))
+                    const gameEndsAtUTC = utcDate.toISOString()
+                    await call('/api/mod/event/update', {
+                      event_id: eventId,
+                      game_ends_at: gameEndsAtUTC,
+                    })
+                    await refreshPolls()
+                  } else if (eventId && !newTime) {
                     await call('/api/mod/event/update', {
                       event_id: eventId,
                       game_ends_at: null,
@@ -551,54 +588,176 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                     await refreshPolls()
                   }
                 }}
-                className="px-3 py-2 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50"
+                className="border rounded px-3 py-2 flex-1"
               >
-                Clear
-              </button>
-            )}
+                <option value="">-- Hour --</option>
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={String(i).padStart(2, '0')}>
+                    {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
+                  </option>
+                ))}
+              </select>
+              <span className="text-gray-500">:</span>
+              <select
+                value={gameEndTime ? gameEndTime.split(':')[1] || '00' : ''}
+                onChange={async (e) => {
+                  const minutes = e.target.value
+                  const hours = gameEndTime ? gameEndTime.split(':')[0] || '' : ''
+                  if (!hours) return
+                  const newTime = `${hours}:${minutes}`
+                  setGameEndTime(newTime)
+                  if (eventId) {
+                    // Convert CST time to UTC ISO string
+                    const [h, m] = newTime.split(':').map(Number)
+                    const today = new Date()
+                    const cstDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))
+                    const utcDate = new Date(cstDate.getTime() + (6 * 60 * 60 * 1000))
+                    const gameEndsAtUTC = utcDate.toISOString()
+                    await call('/api/mod/event/update', {
+                      event_id: eventId,
+                      game_ends_at: gameEndsAtUTC,
+                    })
+                    await refreshPolls()
+                  }
+                }}
+                className="border rounded px-3 py-2 flex-1"
+                disabled={!gameEndTime || !gameEndTime.split(':')[0]}
+              >
+                <option value="">-- Min --</option>
+                {Array.from({ length: 60 }, (_, i) => (
+                  <option key={i} value={String(i).padStart(2, '0')}>
+                    {String(i).padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+              {gameEndTime && (
+                <button
+                  onClick={async () => {
+                    setGameEndTime('')
+                    if (eventId) {
+                      await call('/api/mod/event/update', {
+                        event_id: eventId,
+                        game_ends_at: null,
+                      })
+                      await refreshPolls()
+                    }
+                  }}
+                  className="px-3 py-2 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Set when the game should automatically end (CST)</p>
           </div>
-          <p className="text-xs text-gray-500 mt-1">Set when the game should automatically end (CST)</p>
         </div>
-      </div>
 
-      {/* Start/Stop Game Controls */}
-      <div className="flex flex-wrap gap-4 items-center">
-        {!autoAdvanceEnabled ? (
-          <button
-            className="px-6 py-3 rounded-lg border-2 font-bold text-lg bg-green-500 text-white border-green-600 hover:bg-green-600 transition-colors"
-            onClick={async () => {
-              if (!eventId) return
-              setLastError(null)
-              console.log('[moderator] Starting game for event:', eventId)
-              const result = await call('/api/mod/game/start', { event_id: eventId })
-              console.log('[moderator] Start game result:', result)
-              if (result !== null) {
-                console.log('[moderator] Game started, refreshing polls in 500ms...')
-                // Small delay to ensure database has updated
-                await new Promise(resolve => setTimeout(resolve, 500))
-                await refreshPolls()
-                console.log('[moderator] Polls refreshed after start')
-              } else {
-                console.error('[moderator] Failed to start game - result was null')
-              }
-            }}
-          >
-            ▶ Start Game
-          </button>
-        ) : (
-          <button
-            className="px-6 py-3 rounded-lg border-2 font-bold text-lg bg-red-500 text-white border-red-600 hover:bg-red-600 transition-colors"
-            onClick={async () => {
-              if (!eventId) return
-              const result = await call('/api/mod/game/stop', { event_id: eventId })
-              if (result !== null) {
-                await refreshPolls()
-              }
-            }}
-          >
-            ⏸ Stop Game
-          </button>
-        )}
+        {/* Start/Stop Game Controls - Right Side */}
+        <div className="flex flex-col items-center gap-4">
+          {gameEnded && !autoAdvanceEnabled ? (
+            <button
+              className="px-8 py-6 rounded-xl transition-all duration-200 backdrop-blur-md font-bold text-xl"
+              style={{
+                border: '1px solid rgba(56, 93, 117, 0.3)',
+                backgroundColor: 'rgba(242, 247, 247, 0.6)',
+                color: '#385D75',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
+                e.currentTarget.style.color = 'white'
+                e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
+                e.currentTarget.style.boxShadow = '0 12px 40px 0 rgba(31, 38, 135, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.6)'
+                e.currentTarget.style.color = '#385D75'
+                e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.3)'
+                e.currentTarget.style.boxShadow = '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+              }}
+              onClick={async () => {
+                if (!eventId) return
+                const result = await call('/api/mod/game/ready', { event_id: eventId })
+                if (result !== null) {
+                  await refreshPolls()
+                }
+              }}
+            >
+              ✓ Ready Game
+            </button>
+          ) : !autoAdvanceEnabled ? (
+            <button
+              className="px-8 py-6 rounded-xl transition-all duration-200 backdrop-blur-md font-bold text-xl"
+              style={{
+                border: '1px solid rgba(56, 93, 117, 0.3)',
+                backgroundColor: 'rgba(242, 247, 247, 0.6)',
+                color: '#385D75',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
+                e.currentTarget.style.color = 'white'
+                e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
+                e.currentTarget.style.boxShadow = '0 12px 40px 0 rgba(31, 38, 135, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.6)'
+                e.currentTarget.style.color = '#385D75'
+                e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.3)'
+                e.currentTarget.style.boxShadow = '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+              }}
+              onClick={async () => {
+                if (!eventId) return
+                setLastError(null)
+                console.log('[moderator] Starting game for event:', eventId)
+                const result = await call('/api/mod/game/start', { event_id: eventId })
+                console.log('[moderator] Start game result:', result)
+                if (result !== null) {
+                  console.log('[moderator] Game started, refreshing polls in 500ms...')
+                  // Small delay to ensure database has updated
+                  await new Promise(resolve => setTimeout(resolve, 500))
+                  await refreshPolls()
+                  console.log('[moderator] Polls refreshed after start')
+                } else {
+                  console.error('[moderator] Failed to start game - result was null')
+                }
+              }}
+            >
+              ▶ Start Game
+            </button>
+          ) : (
+            <button
+              className="px-8 py-6 rounded-xl transition-all duration-200 backdrop-blur-md font-bold text-xl"
+              style={{
+                border: '1px solid rgba(56, 93, 117, 0.3)',
+                backgroundColor: 'rgba(242, 247, 247, 0.6)',
+                color: '#385D75',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.8)'
+                e.currentTarget.style.color = 'white'
+                e.currentTarget.style.borderColor = 'rgba(44, 74, 97, 0.5)'
+                e.currentTarget.style.boxShadow = '0 12px 40px 0 rgba(31, 38, 135, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(242, 247, 247, 0.6)'
+                e.currentTarget.style.color = '#385D75'
+                e.currentTarget.style.borderColor = 'rgba(56, 93, 117, 0.3)'
+                e.currentTarget.style.boxShadow = '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+              }}
+              onClick={async () => {
+                if (!eventId) return
+                const result = await call('/api/mod/game/stop', { event_id: eventId })
+                if (result !== null) {
+                  await refreshPolls()
+                }
+              }}
+            >
+              ⏸ Stop Game
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Poll Management Section */}
