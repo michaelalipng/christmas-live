@@ -32,14 +32,14 @@ export default function Countdown({
   }, [nowMs, endsAtIso, totalDurationSec, lockThresholdPct])
 
   return (
-    <div className="w-full space-y-3">
-      <div className="h-3 w-full rounded-full overflow-hidden backdrop-blur-md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}>
+    <div className="w-full space-y-5">
+      <div className="w-full rounded-full overflow-hidden backdrop-blur-md" style={{ height: 'clamp(0.45rem, 0.9vh, 0.9rem)', backgroundColor: 'rgba(255, 255, 255, 0.5)', border: '2px solid rgba(56, 93, 117, 0.2)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}>
         <div
           className={`h-full ${lockVisual ? 'opacity-70' : ''}`}
           style={{ width: `${Math.min(100, Math.max(0, pct * 100))}%`, backgroundColor: '#D8A869', transition: 'width 250ms linear' }}
         />
       </div>
-      <div className="text-base tabular-nums font-medium" style={{ color: '#385D75' }}>
+      <div className="tabular-nums font-medium" style={{ color: '#385D75', fontSize: 'clamp(1.1rem, 2.25vw, 2.7rem)' }}>
         Time left: <span className="font-bold" style={{ color: '#D8A869' }}>{formatSeconds(remainingMs)}</span>
       </div>
     </div>

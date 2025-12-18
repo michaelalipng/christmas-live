@@ -64,19 +64,18 @@ export default function LiveTally({ pollId }: { pollId: UUID }) {
   if (!options.length) return null
 
   return (
-    <div className="space-y-4 p-5 rounded-xl backdrop-blur-md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}>
-      <p className="text-sm uppercase tracking-wider font-semibold" style={{ color: '#385D75' }}>Total Votes: <span className="font-bold" style={{ color: '#D8A869' }}>{total}</span></p>
-      <div className="grid gap-4">
+    <div className="w-full flex flex-col rounded-xl backdrop-blur-md p-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', border: '2px solid rgba(56, 93, 117, 0.2)', boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}>
+      <div className="grid grid-cols-1 gap-3 overflow-visible">
         {options.map(o => {
           const c = counts[o.id] ?? 0
           const pct = total > 0 ? Math.round((c / total) * 100) : 0
           return (
-            <div key={o.id} className="space-y-2">
-              <div className="flex justify-between text-base font-medium">
-                <span style={{ color: '#385D75' }}>{o.label}</span>
-                <span className="tabular-nums font-bold" style={{ color: '#D8A869' }}>{c} • {pct}%</span>
+            <div key={o.id} className="flex flex-col justify-center space-y-1.5">
+              <div className="flex justify-between items-center font-bold">
+                <span className="uppercase" style={{ color: '#385D75', wordBreak: 'break-word', fontSize: 'clamp(0.75rem, 1.4vw, 1.75rem)' }}>{o.label}</span>
+                <span className="tabular-nums font-bold ml-3 flex-shrink-0" style={{ color: '#D8A869', fontSize: 'clamp(0.75rem, 1.4vw, 1.75rem)' }}>{c} • {pct}%</span>
               </div>
-              <div className="h-3 w-full rounded-full overflow-hidden backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}>
+              <div className="w-full rounded-full overflow-hidden backdrop-blur-sm" style={{ height: 'clamp(0.5rem, 1vh, 1rem)', backgroundColor: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(56, 93, 117, 0.2)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}>
                 <div
                   className="h-full"
                   style={{ width: `${pct}%`, backgroundColor: '#D8A869', transition: 'width 200ms linear' }}

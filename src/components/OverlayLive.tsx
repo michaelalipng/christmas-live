@@ -298,28 +298,29 @@ export default function OverlayLive() {
       // If showing results and we have a correct answer, show the animated answer display
       if (isShowingResults && correctAnswer) {
         return (
-          <div className="space-y-8 w-full px-6">
-            <div className="space-y-4 text-center animate-fadeIn px-2">
-              <p className="text-xl uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75' }}>The Answer Is</p>
-              <div className="flex justify-center w-full px-2">
+          <div className="flex flex-col w-full px-8 items-center justify-center" style={{ height: '100%' }}>
+            <div className="space-y-8 text-center animate-fadeIn px-4">
+              <p className="uppercase tracking-wider opacity-80 font-medium" style={{ color: '#385D75', fontSize: 'clamp(1rem, 2vw, 2.5rem)' }}>The Answer Is</p>
+              <div className="flex justify-center w-full px-4">
                 <div 
-                  className="inline-block px-6 py-5 rounded-2xl backdrop-blur-md max-w-full"
+                  className="inline-block px-8 py-6 rounded-2xl backdrop-blur-md max-w-full"
                   style={{
                     backgroundColor: 'rgba(34, 197, 94, 0.3)',
-                    border: '3px solid rgba(34, 197, 94, 0.8)',
+                    border: '4px solid rgba(34, 197, 94, 0.8)',
                     boxShadow: '0 20px 60px -12px rgba(34, 197, 94, 0.5), 0 0 0 1px rgba(34, 197, 94, 0.2)',
                     animation: 'correctAnswerPulse 2s ease-in-out infinite, fadeInScale 0.8s ease-out',
                     overflow: 'visible',
                   }}
                 >
                   <h2 
-                    className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight break-words px-2"
+                    className="font-bold leading-tight break-words px-4"
                     style={{ 
                       color: '#22C55E',
                       fontFamily: 'Forum, serif',
                       textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
+                      fontSize: 'clamp(2.5rem, 7vw, 10rem)',
                     }}
                   >
                     {correctAnswer.label}
@@ -327,13 +328,10 @@ export default function OverlayLive() {
                 </div>
               </div>
               {nextQuestionAt && (
-                <div className="text-2xl tabular-nums font-medium px-2" style={{ color: '#385D75' }}>
+                <div className="tabular-nums font-medium px-4" style={{ color: '#385D75', fontSize: 'clamp(1rem, 2vw, 2.5rem)' }}>
                   Next question in: <span className="font-bold" style={{ color: '#D8A869' }}>{formatSeconds(Math.max(0, Date.parse(nextQuestionAt) - serverNowMs))}</span>
                 </div>
               )}
-            </div>
-            <div className="px-4">
-              <LiveTally pollId={state.poll.id} />
             </div>
           </div>
         )
@@ -341,19 +339,19 @@ export default function OverlayLive() {
       
       // Normal display during voting
       return (
-        <div className="space-y-6 w-full px-4" style={{ marginTop: '-8vh' }}>
-          <div className="space-y-3">
-            <p className="text-lg uppercase tracking-wider opacity-80 font-medium text-center" style={{ color: '#385D75' }}>Current Question</p>
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-center break-words" style={{ color: '#D8A869', fontFamily: 'Forum, serif', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{state.poll.question}</h2>
+        <div className="flex flex-col w-full px-6" style={{ height: '100%', gap: 'clamp(0.4rem, 0.9vh, 0.9rem)' }}>
+          <div className="flex-shrink-0 space-y-1.5 overflow-hidden" style={{ maxHeight: '35%', minHeight: 0 }}>
+            <p className="uppercase tracking-wider opacity-80 font-medium text-center" style={{ color: '#385D75', fontSize: 'clamp(0.75rem, 1.35vw, 1.8rem)' }}>Current Question</p>
+            <h2 className="font-bold leading-tight text-center break-words px-3 overflow-hidden" style={{ color: '#D8A869', fontFamily: 'Forum, serif', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: 'clamp(1.35rem, 3.6vw, 4.5rem)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{state.poll.question}</h2>
           </div>
-          <div className="flex justify-center px-2">
+          <div className="flex-shrink-0 flex justify-center px-3 overflow-visible" style={{ minHeight: 'fit-content', marginTop: 'clamp(1rem, 2vh, 2rem)' }}>
             <Countdown
               nowMs={serverNowMs}
               endsAtIso={state.poll.ends_at}
               totalDurationSec={state.poll.duration_seconds}
             />
           </div>
-          <div className="px-2">
+          <div className="flex-1 flex items-center justify-center px-3 overflow-visible min-h-0" style={{ minHeight: 0, maxHeight: 'none', paddingTop: 'clamp(0.5rem, 1vh, 1rem)', paddingBottom: 'clamp(0.5rem, 1vh, 1rem)' }}>
             <LiveTally pollId={state.poll.id} />
           </div>
         </div>
@@ -365,8 +363,8 @@ export default function OverlayLive() {
   return (
     <div className="w-full h-screen flex flex-col relative overflow-hidden">
       {/* Main Content Area - Top portion */}
-      <section className={`flex-1 flex flex-col items-center overflow-visible min-h-0 relative z-10 ${state.status === 'idle' ? 'max-w-6xl mx-auto w-full justify-center p-6 pb-8 pt-16' : state.status === 'active' ? 'max-w-5xl mx-auto justify-start p-6 pb-8 pt-[18vh]' : 'max-w-2xl mx-auto justify-center p-6 pb-8 pt-16'}`}>
-        <div className={`w-full flex flex-col items-center overflow-visible px-2 ${state.status === 'active' ? 'h-auto' : 'h-full justify-center'}`}>
+      <section className={`flex-1 flex flex-col items-center overflow-hidden min-h-0 relative z-10 ${state.status === 'idle' ? 'max-w-6xl mx-auto w-full justify-center p-6 pb-8 pt-16' : state.status === 'active' ? (state.poll.state === 'showing_results' || (state.poll.ends_at && serverNowMs >= Date.parse(state.poll.ends_at)) ? 'max-w-5xl mx-auto justify-start p-4 pb-4 pt-8' : 'max-w-5xl mx-auto justify-start p-4 pb-4 pt-20') : 'max-w-2xl mx-auto justify-center p-6 pb-8 pt-16'}`}>
+        <div className={`w-full flex flex-col items-center overflow-hidden px-2 ${state.status === 'active' ? 'h-full flex' : 'h-full justify-center'}`} style={{ minHeight: 0 }}>
           {content}
         </div>
         {eventId ? <BannerTray eventId={eventId} /> : null}

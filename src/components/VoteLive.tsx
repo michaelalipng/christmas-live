@@ -203,13 +203,43 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     }
   }, [eventId])
 
-  const handleInviteFriend = () => {
+  const handleInviteFriend = (e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     const message = 'Come sit with me for Christmas Service at HPC. https://healingplacechurch.org/christmas'
     const encoded = encodeURIComponent(message)
-    // Android prefers ?body=, iOS uses &body=
+    
+    // iOS Safari requires a different format and needs to break out of iframe
+    const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
-    const href = isAndroid ? `sms:?body=${encoded}` : `sms:&body=${encoded}`
-    window.location.href = href
+    
+    let href: string
+    if (isIOS) {
+      // iOS uses ?body= format
+      href = `sms:&body=${encoded}`
+    } else if (isAndroid) {
+      href = `sms:?body=${encoded}`
+    } else {
+      // Default format
+      href = `sms:&body=${encoded}`
+    }
+    
+    // Check if we're in an iframe (embedded in WordPress)
+    try {
+      if (window.self !== window.top) {
+        // We're in an iframe - try to break out
+        window.top!.location.href = href
+      } else {
+        // Not in iframe - use normal navigation
+        window.location.href = href
+      }
+    } catch (err) {
+      // If we can't access top (cross-origin), try opening in new window
+      window.open(href, '_blank')
+    }
   }
 
   const content = useMemo(() => {
@@ -478,11 +508,19 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
           </a>
           <button
             onClick={handleInviteFriend}
+            onTouchEnd={(e) => {
+              e.preventDefault()
+              handleInviteFriend(e)
+            }}
             className="px-6 py-3 rounded-lg border-2 font-semibold transition-all duration-200 backdrop-blur-md w-full sm:w-auto"
             style={{
               borderColor: 'rgba(216, 168, 105, 0.6)',
               backgroundColor: 'rgba(242, 247, 247, 0.9)',
               color: '#385D75',
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
+              userSelect: 'none',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(216, 168, 105, 0.9)'
