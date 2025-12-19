@@ -264,9 +264,9 @@ export default function OverlayLive() {
               <img 
                 src="/Manger-Scene-Pic.png" 
                 alt="Manger Scene" 
-                className="max-w-[200px] md:max-w-xs h-auto transition-all duration-300"
+                className="max-w-[240px] md:max-w-sm h-auto transition-all duration-300"
                 style={{ 
-                  maxHeight: '300px',
+                  maxHeight: '360px',
                   animation: 'floatUp 4s ease-in-out infinite, subtleGlow 3s ease-in-out infinite',
                 }}
               />
@@ -280,7 +280,7 @@ export default function OverlayLive() {
               <img 
                 src="/Christmas-Header.png" 
                 alt="Christmas Header" 
-                className="max-w-[280px] md:max-w-md h-auto transition-all duration-300"
+                className="max-w-[320px] md:max-w-lg h-auto transition-all duration-300"
                 style={{
                   animation: 'floatUp 4s ease-in-out infinite 0.6s, subtleGlow 3s ease-in-out infinite 0.3s',
                 }}
@@ -402,7 +402,7 @@ export default function OverlayLive() {
             <img 
               src="/Christmas Trivia QR Code.jpg" 
               alt="QR Code to join the game" 
-              className="h-36 md:h-44 w-auto rounded-lg shadow-xl"
+              className="h-40 md:h-48 w-auto rounded-lg shadow-xl"
               style={{
                 border: '2px solid rgba(56, 93, 117, 0.2)',
                 transform: 'translateY(-10px)',
