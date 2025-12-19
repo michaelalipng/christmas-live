@@ -264,9 +264,9 @@ export default function OverlayLive() {
               <img 
                 src="/Manger-Scene-Pic.png" 
                 alt="Manger Scene" 
-                className="max-w-[240px] md:max-w-sm h-auto transition-all duration-300"
+                className="max-w-[288px] md:max-w-md h-auto transition-all duration-300"
                 style={{ 
-                  maxHeight: '360px',
+                  maxHeight: '432px',
                   animation: 'floatUp 4s ease-in-out infinite, subtleGlow 3s ease-in-out infinite',
                 }}
               />
@@ -280,7 +280,7 @@ export default function OverlayLive() {
               <img 
                 src="/Christmas-Header.png" 
                 alt="Christmas Header" 
-                className="max-w-[320px] md:max-w-lg h-auto transition-all duration-300"
+                className="max-w-[360px] md:max-w-xl h-auto transition-all duration-300"
                 style={{
                   animation: 'floatUp 4s ease-in-out infinite 0.6s, subtleGlow 3s ease-in-out infinite 0.3s',
                 }}
