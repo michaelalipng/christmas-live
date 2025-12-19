@@ -41,7 +41,8 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
   const [newOptionLabel, setNewOptionLabel] = useState('')
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false)
   const [eventDuration, setEventDuration] = useState<number>(30)
-  const [eventResults, setEventResults] = useState<number>(8)
+  const [eventResults, setEventResults] = useState<number>(10)
+  const [isUpdatingResults, setIsUpdatingResults] = useState(false)
   const [gameEndTime, setGameEndTime] = useState<string>('')
   const [gameEnded, setGameEnded] = useState<boolean>(false)
   const [showBannerModal, setShowBannerModal] = useState(false)
@@ -113,7 +114,10 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
       if (eventData) {
         setAutoAdvanceEnabled(eventData.auto_advance ?? false)
         setEventDuration(eventData.duration_seconds ?? 30)
-        setEventResults(eventData.results_seconds ?? 8)
+        // Only update results_seconds if not currently updating and value is not 150 (likely stale)
+        if (!isUpdatingResults && eventData.results_seconds !== 150) {
+          setEventResults(eventData.results_seconds ?? 10)
+        }
         setGameEnded(eventData.game_ended ?? false)
         // Convert UTC game_ends_at to CST time string (HH:MM format)
         if (eventData.game_ends_at) {
@@ -150,7 +154,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         }
       }
       setEventDuration(30)
-      setEventResults(8)
+      setEventResults(10)
     }
     
     // Refresh options for all polls
@@ -189,7 +193,9 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         if (eventData && alive) {
           setAutoAdvanceEnabled(eventData.auto_advance ?? false)
           setEventDuration(eventData.duration_seconds ?? 30)
-          setEventResults(eventData.results_seconds ?? 8)
+          if (!isUpdatingResults) {
+            setEventResults(eventData.results_seconds ?? 10)
+          }
         }
       } catch {
         // Try without duration/results columns
@@ -257,7 +263,7 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
         if (newData.duration_seconds !== undefined) {
           setEventDuration(newData.duration_seconds)
         }
-        if (newData.results_seconds !== undefined) {
+        if (newData.results_seconds !== undefined && !isUpdatingResults && newData.results_seconds !== 150) {
           setEventResults(newData.results_seconds)
         }
         if (newData.game_ended !== undefined) {
@@ -546,12 +552,25 @@ export default function ModeratorPanel({ campusSlug }: { campusSlug: string }) {
                 value={eventResults}
                 onChange={e => setEventResults(Number(e.target.value))}
                 onBlur={async () => {
-                  if (eventId) {
-                    await call('/api/mod/event/update', {
-                      event_id: eventId,
-                      results_seconds: eventResults,
-                    })
-                    await refreshPolls()
+                  if (eventId && eventResults !== 150) {
+                    setIsUpdatingResults(true)
+                    try {
+                      const result = await call('/api/mod/event/update', {
+                        event_id: eventId,
+                        results_seconds: eventResults,
+                      })
+                      if (result !== null) {
+                        // Wait a bit longer to ensure database update propagates
+                        await new Promise(resolve => setTimeout(resolve, 300))
+                        // Don't refresh polls - it will read the old value
+                        // Instead, just let the realtime subscription handle it
+                      }
+                    } finally {
+                      // Keep the flag for a bit longer to prevent realtime overwrite
+                      setTimeout(() => {
+                        setIsUpdatingResults(false)
+                      }, 500)
+                    }
                   }
                 }}
                 className="w-full border rounded px-3 py-2"

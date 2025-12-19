@@ -3,13 +3,13 @@
 
 ALTER TABLE events 
 ADD COLUMN IF NOT EXISTS duration_seconds INTEGER DEFAULT 30,
-ADD COLUMN IF NOT EXISTS results_seconds INTEGER DEFAULT 8;
+ADD COLUMN IF NOT EXISTS results_seconds INTEGER DEFAULT 10;
 
 -- Optional: Update existing events with default values if they're null
 UPDATE events 
 SET 
   duration_seconds = COALESCE(duration_seconds, 30),
-  results_seconds = COALESCE(results_seconds, 8)
+  results_seconds = COALESCE(results_seconds, 10)
 WHERE duration_seconds IS NULL OR results_seconds IS NULL;
 
 

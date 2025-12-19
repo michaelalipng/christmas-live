@@ -105,7 +105,7 @@ async function processEvent(event_id: string): Promise<NextResponse> {
       
       if (eventData) {
         durationSeconds = eventData.duration_seconds ?? 30
-        resultsSeconds = eventData.results_seconds ?? 8
+        resultsSeconds = eventData.results_seconds ?? 10
         gameEndsAt = eventData.game_ends_at ?? null
         
         // Check if game end time has been reached

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   // Get event settings (global duration and results)
   // Note: If columns don't exist, use defaults
   let durationSeconds = 30
-  let resultsSeconds = 8
+  let resultsSeconds = 10
   
   try {
     const { data: event } = await supabaseAdmin
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     
     if (event) {
       durationSeconds = event.duration_seconds ?? 30
-      resultsSeconds = event.results_seconds ?? 8
+      resultsSeconds = event.results_seconds ?? 10
     }
   } catch {
     // Columns don't exist yet, use defaults

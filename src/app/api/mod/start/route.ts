@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   
   // Use event's global settings, fallback to defaults
   const durationSeconds = event?.duration_seconds ?? 30
-  const resultsSeconds = event?.results_seconds ?? 8
+  const resultsSeconds = event?.results_seconds ?? 10
   
   // Now start the requested poll
   const now = new Date()

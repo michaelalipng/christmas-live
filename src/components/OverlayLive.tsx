@@ -363,7 +363,7 @@ export default function OverlayLive() {
   return (
     <div className="w-full h-screen flex flex-col relative overflow-hidden">
       {/* Main Content Area - Top portion */}
-      <section className={`flex-1 flex flex-col items-center overflow-hidden min-h-0 relative z-10 ${state.status === 'idle' ? 'max-w-6xl mx-auto w-full justify-center p-6 pb-8 pt-16' : state.status === 'active' ? (state.poll.state === 'showing_results' || (state.poll.ends_at && serverNowMs >= Date.parse(state.poll.ends_at)) ? 'max-w-5xl mx-auto justify-start p-4 pb-4 pt-8' : 'max-w-5xl mx-auto justify-start p-4 pb-4 pt-20') : 'max-w-2xl mx-auto justify-center p-6 pb-8 pt-16'}`}>
+      <section className={`flex-1 flex flex-col items-center overflow-hidden min-h-0 relative z-10 ${state.status === 'idle' ? 'max-w-6xl mx-auto w-full justify-center p-6 pb-8 pt-16' : state.status === 'active' ? 'w-[80%] mx-auto justify-start p-4 pb-4 pt-20' : 'w-[80%] mx-auto justify-center p-6 pb-8 pt-16'}`}>
         <div className={`w-full flex flex-col items-center overflow-hidden px-2 ${state.status === 'active' ? 'h-full flex' : 'h-full justify-center'}`} style={{ minHeight: 0 }}>
           {content}
         </div>
