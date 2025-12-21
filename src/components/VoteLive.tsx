@@ -204,7 +204,7 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     }
   }, [eventId])
 
-  const handleInviteFriend = (e?: React.MouseEvent | React.TouchEvent) => {
+  const handleInviteFriend = async (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
       e.preventDefault()
       e.stopPropagation()
@@ -214,6 +214,21 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
     trackEvent('invite_friend_click', {
       campus: campusSlug,
     })
+    
+    // Also log to API for server-side tracking
+    try {
+      await fetch('/api/analytics/button-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          button: 'invite_friend_click',
+          campus: campusSlug,
+        }),
+      })
+    } catch (err) {
+      // Silently fail - analytics still tracked via Vercel
+      console.error('Failed to log button click to API:', err)
+    }
     
     const message = 'Come sit with me for Christmas Service at HPC. https://healingplacechurch.org/christmas'
     const encoded = encodeURIComponent(message)
@@ -500,11 +515,26 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
               backgroundColor: 'rgba(242, 247, 247, 0.9)',
               color: '#385D75',
             }}
-            onClick={() => {
+            onClick={async () => {
               trackEvent('learn_more_click', {
                 campus: campusSlug,
                 url: 'https://healingplacechurch.org/new',
               })
+              // Also log to API for server-side tracking
+              try {
+                await fetch('/api/analytics/button-click', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    button: 'learn_more_click',
+                    campus: campusSlug,
+                    metadata: { url: 'https://healingplacechurch.org/new' },
+                  }),
+                })
+              } catch (err) {
+                // Silently fail - analytics still tracked via Vercel
+                console.error('Failed to log button click to API:', err)
+              }
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.9)'
