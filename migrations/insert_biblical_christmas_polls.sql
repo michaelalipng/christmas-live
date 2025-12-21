@@ -306,3 +306,4 @@ UPDATE polls SET correct_option_id = (SELECT id FROM options WHERE poll_id = (SE
 WHERE id = (SELECT id FROM new_poll);
 
 
+

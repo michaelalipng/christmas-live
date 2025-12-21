@@ -9,3 +9,4 @@ UPDATE events
 SET game_ended = false
 WHERE game_ended IS NULL;
 
+

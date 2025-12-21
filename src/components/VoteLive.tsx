@@ -6,6 +6,7 @@ import { useServerTime } from '@/lib/useServerTime'
 import Countdown, { formatSeconds } from '@/components/Countdown'
 import VoteOptions from '@/components/VoteOptions'
 import LiveTally from '@/components/LiveTally'
+import { trackEvent } from '@/lib/analytics'
 import dynamic from 'next/dynamic'
 const BannerTray = dynamic(() => import('@/components/BannerTray'), { ssr: false })
 
@@ -208,6 +209,11 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
       e.preventDefault()
       e.stopPropagation()
     }
+    
+    // Track the button click
+    trackEvent('invite_friend_click', {
+      campus: campusSlug,
+    })
     
     const message = 'Come sit with me for Christmas Service at HPC. https://healingplacechurch.org/christmas'
     const encoded = encodeURIComponent(message)
@@ -468,6 +474,7 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
             correctOptionId={state.poll.correct_option_id}
             endsAtIso={state.poll.ends_at}
             serverNowMs={serverNowMs}
+            campusSlug={campusSlug}
           />
           <LiveTally pollId={state.poll.id} />
         </div>
@@ -492,6 +499,12 @@ export default function VoteLive({ campusSlug }: { campusSlug: string }) {
               borderColor: 'rgba(56, 93, 117, 0.6)',
               backgroundColor: 'rgba(242, 247, 247, 0.9)',
               color: '#385D75',
+            }}
+            onClick={() => {
+              trackEvent('learn_more_click', {
+                campus: campusSlug,
+                url: 'https://healingplacechurch.org/new',
+              })
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(44, 74, 97, 0.9)'

@@ -3,17 +3,20 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { PollOption, UUID } from '@/types/db'
 import { getDeviceId } from '@/lib/deviceId'
+import { analytics } from '@/lib/analytics'
 
 export default function VoteOptions({ 
   pollId, 
   correctOptionId, 
   endsAtIso, 
-  serverNowMs 
+  serverNowMs,
+  campusSlug
 }: { 
   pollId: UUID
   correctOptionId: UUID | null
   endsAtIso: string | null
   serverNowMs: number
+  campusSlug?: string
 }) {
   const [options, setOptions] = useState<PollOption[]>([])
   const [sending, setSending] = useState<UUID | null>(null)
@@ -105,6 +108,10 @@ export default function VoteOptions({
       // Vote successful
       setHasVoted(true)
       setVotedOptionId(optionId)
+      // Track vote in analytics
+      if (campusSlug) {
+        analytics.vote(pollId, optionId, campusSlug)
+      }
     }
     setSending(null)
   }
